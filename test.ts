@@ -6,6 +6,8 @@ testSingleCharacterTokens();
 testDoubleCharacterTokens();
 testComments();
 testMixture();
+testString();
+testNumber();
 
 
 function checkTokens(first: Token[], second: Token[]): [boolean, string | null] {
@@ -271,4 +273,45 @@ function testMixture() {
   ];
 
   logResults(testMixture, expected, tokens);
+}
+
+function testString() {
+  const tokens = scanTokens('"Hello, World!"', (l, m) => console.error(l, m));
+
+  const expected: Token[] = [
+    {
+      type: 'STRING',
+      lexeme: '"Hello, World!"',
+      line: 1,
+      literal: 'Hello, World!'
+    }
+  ];
+
+  logResults(testString, expected, tokens);
+}
+
+function testNumber() {
+  const tokens = scanTokens('12.2 / 300.5', (l, m) => console.error(l, m));
+
+  const expected: Token[] = [
+    {
+      type: 'NUMBER',
+      lexeme: '12.2',
+      line: 1,
+      literal: 12.2
+    },
+    {
+      type: 'SLASH',
+      lexeme: '/',
+      line: 1
+    },
+    {
+      type: 'NUMBER',
+      lexeme: '300.5',
+      line: 1,
+      literal: 300.5
+    }
+  ];
+
+  logResults(testNumber, expected, tokens);
 }

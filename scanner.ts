@@ -190,8 +190,53 @@ function lex(
           ];
       }
     }
+    case '"': {
+      let nextChar: string;
+      let rest = next;
+      let str = '';
+      let lineCount = line;
+      do {
+        [nextChar, ...rest] = rest;
+        str += nextChar;
+        if (nextChar === '\n') { lineCount++; }
+      } while(nextChar && nextChar !== '"');
+
+      if (!nextChar) {
+        error(lineCount, `Unterminated string.`);
+        return [];
+      }
+
+      str = str.slice(0, -1);
+
+      return [
+        { type: 'STRING', lexeme: s + str + nextChar, line, literal: str },
+        ...lex(rest, error, lineCount)
+      ];
+    }
     default:
-      error(line, `Unexpected token ${s}`);
-      return lex(next, error, line);
+      if (isFinite(parseInt(s, 10))) {
+        let nextDigit = s;
+        let rest = next;
+        let str = '';
+
+        do {
+          str += nextDigit;
+          [nextDigit, ...rest] = rest;
+        } while(
+          nextDigit
+          && (
+            isFinite(parseInt(nextDigit, 10))
+            || (nextDigit === '.' && !isFinite(parseInt(rest[1], 10)))
+          )
+        );
+
+        return [
+          { type: 'NUMBER', lexeme: str, line, literal: parseFloat(str) },
+          ...lex(rest, error, line)
+        ];
+      } else {
+        error(line, `Unexpected token ${s}`);
+        return lex(next, error, line);
+      }
   }
 }
