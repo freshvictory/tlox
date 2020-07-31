@@ -43,261 +43,155 @@ export function scanTokens(
   source: string,
   error: (line: number, message: string) => void
 ): Token[] {
-  const line = 1;
-
-  // while (current < source.length) {
-  //   start = current;
-  //   current += 1;
-
-  //   const token = scanToken(source[start]);
-  //   if (token) {
-  //     if (typeof token === 'function') {
-
-  //     } else {
-  //       tokens.push({
-  //         type: token,
-  //         lexeme: source.substring(start, current),
-  //         line
-  //       });
-  //     }
-  //   } else {
-  //     error(line, "Unexpected character.");
-  //   }
-  // }
-
-  const tokens = scanTokensInternal(source, error, 0, 0, 1);
-
-  // tokens.push({
-  //   type: 'EOF',
-  //   lexeme: '',
-  //   line
-  // });
-
-  return tokens;
+  return lex(source.split(''), error, 1);
 }
 
 
-function scanTokensInternal(
-  source: string,
+function lex(
+  source: string[],
   error: (line: number, message: string) => void,
-  start: number,
-  current: number,
-  line: number,
-  acc?: [TokenValue, TokenAccumulator]
+  line: number
 ): Token[] {
-  if (current >= source.length) {
-    if (acc) {
-      return [{
-        type: acc[0],
-        lexeme: source.substring(start),
-        line
-      }];
-    } else {
+  const [s, ...next] = source;
+
+  switch (s) {
+    case undefined:
       return [];
-    }
-  }
-
-  const next = current + 1;
-
-  const tokenValue = scanToken(source[current]);
-
-  if (!tokenValue) {
-    error(line, `Unexpected token ${source[current]}`);
-
-    if (acc) {
+    case ' ':
+    case '\r':
+    case '\t':
+      return lex(next, error, line);
+    case '\n':
+      return lex(next, error, line + 1);
+    case '(':
       return [
-        {
-          type: acc[0],
-          lexeme: source.substring(start, current),
-          line
-        },
-        ...scanTokensInternal(
-          source,
-          error,
-          next,
-          next,
-          line
-        )
+        { type: 'LEFT_PAREN', lexeme: s, line },
+        ...lex(next, error, line)
       ];
-    } else {
-      return scanTokensInternal(
-        source,
-        error,
-        next,
-        next,
-        line
-      );
-    }    
-  }
-
-  if (!acc) {
-    if (typeof tokenValue === 'string') {
+    case ')': 
       return [
-        {
-          type: tokenValue,
-          lexeme: source.substring(start, next),
-          line
-        },
-        ...scanTokensInternal(
-          source,
-          error,
-          next,
-          next,
-          line
-        )
+        { type: 'RIGHT_PAREN', lexeme: s, line },
+        ...lex(next, error, line)
       ];
-    } else {
-      return scanTokensInternal(
-        source,
-        error,
-        start,
-        next,
-        line,
-        tokenValue
-      );
-    }
-  }
-
-  if (acc) {
-    const defaultAccValue = acc[0];
-
-    if (typeof tokenValue !== 'string') {
-      const defaultTokenValue = tokenValue[0];
-      const newAccValue = acc[1](defaultTokenValue);
-
-      if (typeof newAccValue === 'string' && newAccValue !== defaultAccValue) {
-        return [
-          {
-            type: newAccValue,
-            lexeme: source.substring(start, next),
-            line
-          },
-          ...scanTokensInternal(
-            source,
-            error,
-            next,
-            next,
-            line
-          )
-        ];
-      } else if (typeof newAccValue !== 'string') {
-        return scanTokensInternal(
-          source,
-          error,
-          start,
-          next,
-          line,
-          [defaultAccValue, newAccValue]
-        )
-      } else {
-        return [
-          {
-            type: defaultAccValue,
-            lexeme: source.substring(start, current),
-            line
-          },
-          ...scanTokensInternal(
-            source,
-            error,
-            current,
-            next,
-            line,
-            tokenValue
-          )
-        ]
-      }
-    } else {
-      const newAccValue = acc[1](tokenValue);
-
-      if (typeof newAccValue === 'string' && newAccValue !== defaultAccValue) {
-        return [
-          {
-            type: newAccValue,
-            lexeme: source.substring(start, next),
-            line
-          },
-          ...scanTokensInternal(
-            source,
-            error,
-            next,
-            next,
-            line
-          )
-        ];
-      } else {
-        return [
-          {
-            type: defaultAccValue,
-            lexeme: source.substring(start, current),
-            line
-          },
-          {
-            type: tokenValue,
-            lexeme: source.substring(current, next),
-            line
-          },
-          ...scanTokensInternal(
-            source,
-            error,
-            next,
-            next,
-            line
-          )
-        ];
+    case '{':
+      return [
+        { type: 'LEFT_BRACE', lexeme: s, line },
+        ...lex(next, error, line)
+      ];
+    case '}':
+      return [
+        { type: 'RIGHT_BRACE', lexeme: s, line },
+        ...lex(next, error, line)
+      ];
+    case ',':
+      return [
+        { type: 'COMMA', lexeme: s, line },
+        ...lex(next, error, line)
+      ];
+    case '.':
+      return [
+        { type: 'DOT', lexeme: s, line },
+        ...lex(next, error, line)
+      ];
+    case '-':
+      return [
+        { type: 'MINUS', lexeme: s, line },
+        ...lex(next, error, line)
+      ];
+    case '+':
+      return [
+        { type: 'PLUS', lexeme: s, line },
+        ...lex(next, error, line)
+      ];
+    case ';':
+      return [
+        { type: 'SEMICOLON', lexeme: s, line },
+        ...lex(next, error, line)
+      ];
+    case '*':
+      return [
+        { type: 'STAR', lexeme: s, line },
+        ...lex(next, error, line)
+      ];
+    case '!': {
+      const [peek, ...rest] = next;
+      switch (peek) {
+        case '=':
+          return [
+            { type: 'BANG_EQUAL', lexeme: s + peek, line },
+            ...lex(rest, error, line)
+          ];
+        default:
+          return [
+            { type: 'BANG', lexeme: s, line },
+            ...lex(next, error, line)
+          ];
       }
     }
+    case '=': {
+      const [peek, ...rest] = next;
+      switch (peek) {
+        case '=':
+          return [
+            { type: 'EQUAL_EQUAL', lexeme: s + peek, line },
+            ...lex(rest, error, line)
+          ];
+        default:
+          return [
+            { type: 'EQUAL', lexeme: s, line },
+            ...lex(next, error, line)
+          ];
+      }
+    }
+    case '<': {
+      const [peek, ...rest] = next;
+      switch (peek) {
+        case '=':
+          return [
+            { type: 'LESS_EQUAL', lexeme: s + peek, line },
+            ...lex(rest, error, line)
+          ];
+        default:
+          return [
+            { type: 'LESS', lexeme: s, line },
+            ...lex(next, error, line)
+          ];
+      }
+    }
+    case '>': {
+      const [peek, ...rest] = next;
+      switch (peek) {
+        case '=':
+          return [
+            { type: 'GREATER_EQUAL', lexeme: s + peek, line },
+            ...lex(rest, error, line)
+          ];
+        default:
+          return [
+            { type: 'GREATER', lexeme: s, line },
+            ...lex(next, error, line)
+          ];
+      }
+    }
+    case '/': {
+      const [peek, ...rest] = next;
+      switch (peek) {
+        case '/':
+          let comment: string;
+          let remainder = rest;
+          do {
+            [comment, ...remainder] = remainder;            
+          } while (comment && comment !== '\n');
+          return lex(remainder, error, line + 1);
+        default:
+          return [
+            { type: 'SLASH', lexeme: s, line },
+            ...lex(next, error, line)
+          ];
+      }
+    }
+    default:
+      error(line, `Unexpected token ${s}`);
+      return lex(next, error, line);
   }
-
-  return scanTokensInternal(
-    source,
-    error,
-    next,
-    next,
-    line
-  );
-}
-
-
-type TokenAccumulator = (t: TokenValue) => TokenValue | TokenAccumulator;
-
-function scanToken(current: string):
-  | [TokenValue, TokenAccumulator]
-  | TokenValue
-  | null
-{
-  switch (current) {
-    case '(': return 'LEFT_PAREN';
-    case ')': return 'RIGHT_PAREN';
-    case '{': return 'LEFT_BRACE';
-    case '}': return 'RIGHT_BRACE';
-    case ',': return 'COMMA';
-    case '.': return 'DOT';
-    case '-': return 'MINUS';
-    case '+': return 'PLUS';
-    case ';': return 'SEMICOLON';
-    case '*': return 'STAR';
-    case '!': return ['BANG', (t) => t === 'EQUAL'
-      ? 'BANG_EQUAL'
-      : 'BANG'
-    ];
-    case '=': return ['EQUAL', (t) => t === 'EQUAL'
-      ? 'EQUAL_EQUAL'
-      : 'EQUAL'
-    ];
-    case '<': return ['LESS', (t) => t === 'EQUAL'
-      ? 'LESS_EQUAL'
-      : 'LESS'
-    ];
-    case '>': return ['GREATER', (t) => t === 'EQUAL'
-      ? 'GREATER_EQUAL'
-      : 'GREATER'
-    ];
-  }
-
-  return null;
-}
-
-
-function match(s: string, source: string): boolean {
-  return source.startsWith(s);
 }

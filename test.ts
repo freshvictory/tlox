@@ -4,6 +4,8 @@ import { scanTokens, Token } from './scanner.ts';
 console.log();
 testSingleCharacterTokens();
 testDoubleCharacterTokens();
+testComments();
+testMixture();
 
 
 function checkTokens(first: Token[], second: Token[]): [boolean, string | null] {
@@ -63,7 +65,7 @@ function logResults(fun: Function, expected: Token[], actual: Token[]) {
 }
 
 function testSingleCharacterTokens() {
-  const tokens = scanTokens('*-+{', (l, m) => console.log('Error'));
+  const tokens = scanTokens('*-+{', (l, m) => console.log(m));
 
   const expected: Token[] = [
     {
@@ -143,4 +145,130 @@ function testDoubleCharacterTokens() {
   ];
 
   logResults(testDoubleCharacterTokens, expected, tokens);
+}
+
+function testComments() {
+  const tokens = scanTokens('+-*// hi there\n+/', (l, m) => console.log(l, m));
+
+  const expected: Token[] = [
+    {
+      type: 'PLUS',
+      lexeme: '+',
+      line: 1
+    },
+    {
+      type: 'MINUS',
+      lexeme: '-',
+      line: 1
+    },
+    {
+      type: 'STAR',
+      lexeme: '*',
+      line: 1
+    },
+    {
+      type: 'PLUS',
+      lexeme: '+',
+      line: 2
+    },
+    {
+      type: 'SLASH',
+      lexeme: '/',
+      line: 2
+    }
+  ];
+
+  logResults(testComments, expected, tokens);
+}
+
+function testMixture() {
+  const tokens = scanTokens(
+    '// this is a comment\n(( )){} // grouping stuff\n!*+-/=<> <= == //operators',
+    (l, m) => console.log(l, m)
+  );
+
+  const expected: Token[] = [
+    {
+      type: 'LEFT_PAREN',
+      lexeme: '(',
+      line: 2
+    },
+    {
+      type: 'LEFT_PAREN',
+      lexeme: '(',
+      line: 2
+    },
+    {
+      type: 'RIGHT_PAREN',
+      lexeme: ')',
+      line: 2
+    },
+    {
+      type: 'RIGHT_PAREN',
+      lexeme: ')',
+      line: 2
+    },
+    {
+      type: 'LEFT_BRACE',
+      lexeme: '{',
+      line: 2
+    },
+    {
+      type: 'RIGHT_BRACE',
+      lexeme: '}',
+      line: 2
+    },
+    {
+      type: 'BANG',
+      lexeme: '!',
+      line: 3
+    },
+    {
+      type: 'STAR',
+      lexeme: '*',
+      line: 3
+    },
+    {
+      type: 'PLUS',
+      lexeme: '+',
+      line: 3
+    },
+    {
+      type: 'MINUS',
+      lexeme: '-',
+      line: 3
+    },
+    {
+      type: 'SLASH',
+      lexeme: '/',
+      line: 3
+    },
+    {
+      type: 'EQUAL',
+      lexeme: '=',
+      line: 3
+    },
+    {
+      type: 'LESS',
+      lexeme: '<',
+      line: 3
+    },
+    {
+      type: 'GREATER',
+      lexeme: '>',
+      line: 3
+    },
+    {
+      type: 'LESS_EQUAL',
+      lexeme: '<=',
+      line: 3
+    },
+    {
+      type: 'EQUAL_EQUAL',
+      lexeme: '==',
+      line: 3
+    },
+  ];
+
+  logResults(testMixture, expected, tokens);
 }
