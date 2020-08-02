@@ -1,15 +1,111 @@
-import { scanTokens, Token } from '../interpreter/scanner.ts';
+import { Token, TokenValue } from '../interpreter/scanner.ts';
 
 
 console.log();
-testSingleCharacterTokens();
-testDoubleCharacterTokens();
-testComments();
-testMixture();
-testString();
-testNumber();
-testIdentifier();
+await suite();
 
+async function suite() {
+
+  (async function testScanner() {
+    const { scanTokens } = await import('../interpreter/scanner.ts');
+
+    function test(
+      name: string,
+      source: string,
+      expected: ([TokenValue, string, number] | [TokenValue, string, number, string | number])[]
+    ) {
+      const tokens = scanTokens(source, (l, m) => console.error(l, m));
+
+      const expectedTokens: Token[] = expected.map(e => ({
+        type: e[0],
+        lexeme: e[1],
+        line: e[2],
+        literal: e[3]
+      }));
+
+      logResults('scanner#' + name, expectedTokens, tokens);
+    }
+
+    test(
+      'singleCharacter',
+      '*-+{',
+      [
+        ['STAR', '*', 1],
+        ['MINUS', '-', 1],
+        ['PLUS', '+', 1],
+        ['LEFT_BRACE', '{', 1]
+      ]
+    );
+
+    test(
+      'doubleCharacter',
+      '!==!,==!==>=<;',
+      [
+        ['BANG_EQUAL', '!=', 1],
+        ['EQUAL', '=', 1],
+        ['BANG', '!', 1],
+        ['COMMA', ',', 1],
+        ['EQUAL_EQUAL', '==', 1],
+        ['BANG_EQUAL', '!=', 1],
+        ['EQUAL', '=', 1],
+        ['GREATER_EQUAL', '>=', 1],
+        ['LESS', '<', 1],
+        ['SEMICOLON', ';', 1]
+      ]
+    );
+
+    test(
+      'comments',
+      '+-*// hi there\n+/;',
+      [
+        ['PLUS', '+', 1],
+        ['MINUS', '-', 1],
+        ['STAR', '*', 1],
+        ['PLUS', '+', 2],
+        ['SLASH', '/', 2],
+        ['SEMICOLON', ';', 2]
+      ]
+    );
+
+    test(
+      'string',
+      '"Hello, World!";',
+      [
+        ['STRING', '"Hello, World!"', 1, 'Hello, World!'],
+        ['SEMICOLON', ';', 1]
+      ]
+    );
+
+    test(
+      'number',
+      '12.2 / 300.5;',
+      [
+        ['NUMBER', '12.2', 1, 12.2],
+        ['SLASH', '/', 1],
+        ['NUMBER', '300.5', 1, 300.5],
+        ['SEMICOLON', ';', 1]
+      ]
+    );
+
+    test(
+      'identifier',
+      'var x = hi; for return x;',
+      [
+        ['VAR', 'var', 1],
+        ['IDENTIFIER', 'x', 1],
+        ['EQUAL', '=', 1],
+        ['IDENTIFIER', 'hi', 1],
+        ['SEMICOLON', ';', 1],
+        ['FOR', 'for', 1],
+        ['RETURN', 'return', 1],
+        ['IDENTIFIER', 'x', 1],
+        ['SEMICOLON', ';', 1]
+      ]
+    );
+
+  })();
+
+}
 
 function checkTokens(first: Token[], second: Token[]): [boolean, string | null] {
   if (first.length !== second.length) {
@@ -54,324 +150,14 @@ function checkTokens(first: Token[], second: Token[]): [boolean, string | null] 
   return [success, message];
 }
 
-function logResults(fun: Function, expected: Token[], actual: Token[]) {
+function logResults(name: string, expected: Token[], actual: Token[]) {
   const match = checkTokens(expected, actual);
   
   if (match[0]) {
-    console.log(`${fun.name}: passed`);
+    console.log(`${name}: passed`);
   } else {
-    console.error(`${fun.name}: FAILED`);
-    console.indentLevel++;
+    console.error(`${name}: FAILED`);
     console.error(match[1]);
     console.log('  Full:', actual);
   }
-}
-
-function testSingleCharacterTokens() {
-  const tokens = scanTokens('*-+{', (l, m) => console.log(m));
-
-  const expected: Token[] = [
-    {
-      type: 'STAR',
-      lexeme: '*',
-      line: 1
-    },
-    {
-      type: 'MINUS',
-      lexeme: '-',
-      line: 1
-    },
-    {
-      type: 'PLUS',
-      lexeme: '+',
-      line: 1
-    },
-    {
-      type: 'LEFT_BRACE',
-      lexeme: '{',
-      line: 1
-    }
-  ];
-
-  logResults(testSingleCharacterTokens, expected, tokens);
-}
-
-function testDoubleCharacterTokens() {
-  const tokens = scanTokens('!==!,==!==>=<', (l, m) => console.log(l, m, 'Error'));
-
-  const expected: Token[] = [
-    {
-      type: 'BANG_EQUAL',
-      lexeme: '!=',
-      line: 1
-    },
-    {
-      type: 'EQUAL',
-      lexeme: '=',
-      line: 1
-    },
-    {
-      type: 'BANG',
-      lexeme: '!',
-      line: 1
-    },
-    {
-      type: 'COMMA',
-      lexeme: ',',
-      line: 1
-    },
-    {
-      type: 'EQUAL_EQUAL',
-      lexeme: '==',
-      line: 1
-    },
-    {
-      type: 'BANG_EQUAL',
-      lexeme: '!=',
-      line: 1
-    },
-    {
-      type: 'EQUAL',
-      lexeme: '=',
-      line: 1
-    },
-    {
-      type: 'GREATER_EQUAL',
-      lexeme: '>=',
-      line: 1
-    },
-    {
-      type: 'LESS',
-      lexeme: '<',
-      line: 1
-    }
-  ];
-
-  logResults(testDoubleCharacterTokens, expected, tokens);
-}
-
-function testComments() {
-  const tokens = scanTokens('+-*// hi there\n+/', (l, m) => console.log(l, m));
-
-  const expected: Token[] = [
-    {
-      type: 'PLUS',
-      lexeme: '+',
-      line: 1
-    },
-    {
-      type: 'MINUS',
-      lexeme: '-',
-      line: 1
-    },
-    {
-      type: 'STAR',
-      lexeme: '*',
-      line: 1
-    },
-    {
-      type: 'PLUS',
-      lexeme: '+',
-      line: 2
-    },
-    {
-      type: 'SLASH',
-      lexeme: '/',
-      line: 2
-    }
-  ];
-
-  logResults(testComments, expected, tokens);
-}
-
-function testMixture() {
-  const tokens = scanTokens(
-    '// this is a comment\n(( )){} // grouping stuff\n!*+-/=<> <= == //operators',
-    (l, m) => console.log(l, m)
-  );
-
-  const expected: Token[] = [
-    {
-      type: 'LEFT_PAREN',
-      lexeme: '(',
-      line: 2
-    },
-    {
-      type: 'LEFT_PAREN',
-      lexeme: '(',
-      line: 2
-    },
-    {
-      type: 'RIGHT_PAREN',
-      lexeme: ')',
-      line: 2
-    },
-    {
-      type: 'RIGHT_PAREN',
-      lexeme: ')',
-      line: 2
-    },
-    {
-      type: 'LEFT_BRACE',
-      lexeme: '{',
-      line: 2
-    },
-    {
-      type: 'RIGHT_BRACE',
-      lexeme: '}',
-      line: 2
-    },
-    {
-      type: 'BANG',
-      lexeme: '!',
-      line: 3
-    },
-    {
-      type: 'STAR',
-      lexeme: '*',
-      line: 3
-    },
-    {
-      type: 'PLUS',
-      lexeme: '+',
-      line: 3
-    },
-    {
-      type: 'MINUS',
-      lexeme: '-',
-      line: 3
-    },
-    {
-      type: 'SLASH',
-      lexeme: '/',
-      line: 3
-    },
-    {
-      type: 'EQUAL',
-      lexeme: '=',
-      line: 3
-    },
-    {
-      type: 'LESS',
-      lexeme: '<',
-      line: 3
-    },
-    {
-      type: 'GREATER',
-      lexeme: '>',
-      line: 3
-    },
-    {
-      type: 'LESS_EQUAL',
-      lexeme: '<=',
-      line: 3
-    },
-    {
-      type: 'EQUAL_EQUAL',
-      lexeme: '==',
-      line: 3
-    },
-  ];
-
-  logResults(testMixture, expected, tokens);
-}
-
-function testString() {
-  const tokens = scanTokens('"Hello, World!"', (l, m) => console.error(l, m));
-
-  const expected: Token[] = [
-    {
-      type: 'STRING',
-      lexeme: '"Hello, World!"',
-      line: 1,
-      literal: 'Hello, World!'
-    }
-  ];
-
-  logResults(testString, expected, tokens);
-}
-
-function testNumber() {
-  const tokens = scanTokens('12.2 / 300.5;', (l, m) => console.error(l, m));
-
-  const expected: Token[] = [
-    {
-      type: 'NUMBER',
-      lexeme: '12.2',
-      line: 1,
-      literal: 12.2
-    },
-    {
-      type: 'SLASH',
-      lexeme: '/',
-      line: 1
-    },
-    {
-      type: 'NUMBER',
-      lexeme: '300.5',
-      line: 1,
-      literal: 300.5
-    },
-    {
-      type: 'SEMICOLON',
-      lexeme: ';',
-      line: 1
-    }
-  ];
-
-  logResults(testNumber, expected, tokens);
-}
-
-function testIdentifier() {
-  const tokens = scanTokens('var x = hi; for return x;', (l, m) => console.error(l, m));
-
-  const expected: Token[] = [
-    {
-      type: 'VAR',
-      lexeme: 'var',
-      line: 1
-    },
-    {
-      type: 'IDENTIFIER',
-      lexeme: 'x',
-      line: 1
-    },
-    {
-      type: 'EQUAL',
-      lexeme: '=',
-      line: 1
-    },
-    {
-      type: 'IDENTIFIER',
-      lexeme: 'hi',
-      line: 1
-    },
-    {
-      type: 'SEMICOLON',
-      lexeme: ';',
-      line: 1
-    },
-    {
-      type: 'FOR',
-      lexeme: 'for',
-      line: 1
-    },
-    {
-      type: 'RETURN',
-      lexeme: 'return',
-      line: 1
-    },
-    {
-      type: 'IDENTIFIER',
-      lexeme: 'x',
-      line: 1
-    },
-    {
-      type: 'SEMICOLON',
-      lexeme: ';',
-      line: 1
-    }
-  ];
-
-  logResults(testIdentifier, expected, tokens);
 }

@@ -1,4 +1,4 @@
-type TokenValue =
+export type TokenValue =
 
 
   // Single-character tokens
