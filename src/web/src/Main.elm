@@ -1,7 +1,7 @@
 port module Main exposing (main)
 
 import Browser
-import Css exposing (hex, pct, rem)
+import Css exposing (hex, pct, px, rem)
 import Html.Styled as E exposing (Html, toUnstyled)
 import Html.Styled.Attributes exposing (css)
 import Html.Styled.Events exposing (onInput)
@@ -43,7 +43,13 @@ type alias Model =
     { input : String
     , result : List Token
     , error : List ParseError
+    , tab : Tab
     }
+
+
+type Tab
+    = Scanner
+    | Parser
 
 
 defaultModel : Model
@@ -51,6 +57,7 @@ defaultModel =
     { input = ""
     , result = []
     , error = []
+    , tab = Scanner
     }
 
 
@@ -67,6 +74,7 @@ type Msg
     = Input String
     | Result Json.Decode.Value
     | Error (Maybe ParseError)
+    | TabChange Tab
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -101,6 +109,11 @@ update msg model =
                     , Cmd.none
                     )
 
+        TabChange t ->
+            ( { model | tab = t }
+            , Cmd.none
+            )
+
 
 
 ---- VIEW ----
@@ -121,7 +134,9 @@ viewBody model =
         [ css
             [ Css.property "display" "grid"
             , Css.property "grid-template-columns" "1fr 1fr"
-            , Css.property "grid-template-rows" "500px auto"
+            , Css.property "grid-template-rows" "auto"
+            , Css.property "column-gap" "0.75rem"
+            , Css.padding (rem 0.75)
             ]
         ]
         [ viewEditor model
@@ -151,15 +166,34 @@ viewHeader =
 
 viewEditor : Model -> Html Msg
 viewEditor _ =
+    E.section
+        [ css
+            []
+        ]
+        [ viewInput
+        ]
+
+
+viewInput : Html Msg
+viewInput =
     E.textarea
         [ onInput Input
         , css
             [ Css.padding (rem 0.75)
-            , Css.margin (rem 0.75)
             , Css.borderRadius (rem 0.25)
+            , Css.border Css.zero
+            , Css.boxShadow4 Css.zero Css.zero (px 10) (hex "#ccc")
             , Css.fontSize Css.inherit
             , Css.fontFamily Css.monospace
+            , Css.width (pct 100)
+            , Css.boxSizing Css.borderBox
+            , Css.resize Css.none
+            , Css.overflow Css.auto
             ]
+        , Html.Styled.Attributes.autocomplete False
+        , Html.Styled.Attributes.attribute "autocapitalize" "none"
+        , Html.Styled.Attributes.spellcheck False
+        , Html.Styled.Attributes.rows 40
         ]
         []
 
@@ -168,10 +202,74 @@ viewResults : Model -> Html Msg
 viewResults model =
     E.section
         [ css
-            [ Css.margin (rem 0.75)
+            [ Css.property "display" "grid"
+            , Css.property "row-gap" "0.5rem"
+            , Css.property "grid-auto-rows" "max-content"
             ]
         ]
-        [ viewTokens model
+        [ E.div
+            [ css
+                [ Css.displayFlex
+                , Css.justifyContent Css.center
+                ]
+            ]
+            [ viewTabRadio model "scanner" "Scanner" Scanner
+            , viewTabRadio model "parser" "Parser" Parser
+            ]
+        , case model.tab of
+            Scanner ->
+                viewTokens model
+
+            Parser ->
+                E.span
+                    [ css
+                        [ Css.color (hex "#999")
+                        , Css.fontStyle Css.italic
+                        ]
+                    ]
+                    [ E.text "Not yet implemented." ]
+        ]
+
+
+viewTabRadio : Model -> String -> String -> Tab -> Html Msg
+viewTabRadio model id label tab =
+    E.div
+        [ css
+            [ Css.lineHeight (Css.num 1)
+            , Css.padding (rem 0.5)
+            , Css.border3 (px 1) Css.solid (hex "402945")
+            , Css.display Css.block
+            , Css.firstChild
+                [ Css.borderTopLeftRadius (rem 0.25)
+                , Css.borderBottomLeftRadius (rem 0.25)
+                ]
+            , Css.lastChild
+                [ Css.borderTopRightRadius (rem 0.25)
+                , Css.borderBottomRightRadius (rem 0.25)
+                ]
+            , if model.tab == tab then
+                Css.batch
+                    [ Css.backgroundColor (hex "402945")
+                    , Css.color (hex "fff")
+                    ]
+
+              else
+                Css.batch []
+            ]
+        ]
+        [ E.input
+            [ Html.Styled.Attributes.type_ "radio"
+            , Html.Styled.Attributes.name "result"
+            , Html.Styled.Attributes.id ("result-" ++ id)
+            , Html.Styled.Events.on "change" (Json.Decode.succeed (TabChange tab))
+            , Html.Styled.Attributes.checked (model.tab == tab)
+            , css [ Css.display Css.none ]
+            ]
+            []
+        , E.label
+            [ Html.Styled.Attributes.for ("result-" ++ id)
+            ]
+            [ E.text label ]
         ]
 
 
