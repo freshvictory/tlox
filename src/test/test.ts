@@ -8,6 +8,7 @@ testComments();
 testMixture();
 testString();
 testNumber();
+testIdentifier();
 
 
 function checkTokens(first: Token[], second: Token[]): [boolean, string | null] {
@@ -291,7 +292,7 @@ function testString() {
 }
 
 function testNumber() {
-  const tokens = scanTokens('12.2 / 300.5', (l, m) => console.error(l, m));
+  const tokens = scanTokens('12.2 / 300.5;', (l, m) => console.error(l, m));
 
   const expected: Token[] = [
     {
@@ -310,8 +311,67 @@ function testNumber() {
       lexeme: '300.5',
       line: 1,
       literal: 300.5
+    },
+    {
+      type: 'SEMICOLON',
+      lexeme: ';',
+      line: 1
     }
   ];
 
   logResults(testNumber, expected, tokens);
+}
+
+function testIdentifier() {
+  const tokens = scanTokens('var x = hi; for return x;', (l, m) => console.error(l, m));
+
+  const expected: Token[] = [
+    {
+      type: 'VAR',
+      lexeme: 'var',
+      line: 1
+    },
+    {
+      type: 'IDENTIFIER',
+      lexeme: 'x',
+      line: 1
+    },
+    {
+      type: 'EQUAL',
+      lexeme: '=',
+      line: 1
+    },
+    {
+      type: 'IDENTIFIER',
+      lexeme: 'hi',
+      line: 1
+    },
+    {
+      type: 'SEMICOLON',
+      lexeme: ';',
+      line: 1
+    },
+    {
+      type: 'FOR',
+      lexeme: 'for',
+      line: 1
+    },
+    {
+      type: 'RETURN',
+      lexeme: 'return',
+      line: 1
+    },
+    {
+      type: 'IDENTIFIER',
+      lexeme: 'x',
+      line: 1
+    },
+    {
+      type: 'SEMICOLON',
+      lexeme: ';',
+      line: 1
+    }
+  ];
+
+  logResults(testIdentifier, expected, tokens);
 }

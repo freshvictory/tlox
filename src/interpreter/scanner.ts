@@ -230,6 +230,8 @@ function lex(
           )
         );
 
+        rest = [nextDigit, ...rest];
+
         return [
           { type: 'NUMBER', lexeme: str, line, literal: parseFloat(str) },
           ...lex(rest, error, line)
@@ -243,6 +245,8 @@ function lex(
           str += nextChar;
           [nextChar, ...rest] = rest;
         } while (nextChar && /[0-9a-zA-Z]/.test(nextChar));
+
+        rest = [nextChar, ...rest];
 
         switch (str) {
           case 'and': return [
