@@ -214,7 +214,7 @@ function lex(
       ];
     }
     default:
-      if (isFinite(parseInt(s, 10))) {
+      if (/[0-9]/.test(s)) {
         let nextDigit = s;
         let rest = next;
         let str = '';
@@ -225,8 +225,8 @@ function lex(
         } while(
           nextDigit
           && (
-            isFinite(parseInt(nextDigit, 10))
-            || (nextDigit === '.' && !isFinite(parseInt(rest[1], 10)))
+            /[0-9]/.test(nextDigit)
+            || (nextDigit === '.' && /[0-9]/.test(rest[0]))
           )
         );
 
@@ -234,6 +234,86 @@ function lex(
           { type: 'NUMBER', lexeme: str, line, literal: parseFloat(str) },
           ...lex(rest, error, line)
         ];
+      } else if (/[a-zA-Z]/.test(s)) {
+        let nextChar = s;
+        let rest = next;
+        let str = '';
+
+        do {
+          str += nextChar;
+          [nextChar, ...rest] = rest;
+        } while (nextChar && /[0-9a-zA-Z]/.test(nextChar));
+
+        switch (str) {
+          case 'and': return [
+            { type: 'AND', lexeme: str, line },
+            ...lex(rest, error, line)
+          ];
+          case 'class': return [
+            { type: 'CLASS', lexeme: str, line },
+            ...lex(rest, error, line)
+          ];
+          case 'else': return [
+            { type: 'ELSE', lexeme: str, line },
+            ...lex(rest, error, line)
+          ];
+          case 'false': return [
+            { type: 'FALSE', lexeme: str, line },
+            ...lex(rest, error, line)
+          ];
+          case 'for': return [
+            { type: 'FOR', lexeme: str, line },
+            ...lex(rest, error, line)
+          ];
+          case 'fun': return [
+            { type: 'FUN', lexeme: str, line },
+            ...lex(rest, error, line)
+          ];
+          case 'if': return [
+            { type: 'IF', lexeme: str, line },
+            ...lex(rest, error, line)
+          ];
+          case 'nil': return [
+            { type: 'NIL', lexeme: str, line },
+            ...lex(rest, error, line)
+          ];
+          case 'or': return [
+            { type: 'OR', lexeme: str, line },
+            ...lex(rest, error, line)
+          ];
+          case 'print': return [
+            { type: 'PRINT', lexeme: str, line },
+            ...lex(rest, error, line)
+          ];
+          case 'return': return [
+            { type: 'RETURN', lexeme: str, line },
+            ...lex(rest, error, line)
+          ];
+          case 'super': return [
+            { type: 'SUPER', lexeme: str, line },
+            ...lex(rest, error, line)
+          ];
+          case 'this': return [
+            { type: 'THIS', lexeme: str, line },
+            ...lex(rest, error, line)
+          ];
+          case 'true': return [
+            { type: 'TRUE', lexeme: str, line },
+            ...lex(rest, error, line)
+          ];
+          case 'var': return [
+            { type: 'VAR', lexeme: str, line },
+            ...lex(rest, error, line)
+          ];
+          case 'while': return [
+            { type: 'WHILE', lexeme: str, line },
+            ...lex(rest, error, line)
+          ];
+          default: return [
+            { type: 'IDENTIFIER', lexeme: str, line },
+            ...lex(rest, error, line)
+          ];
+        }
       } else {
         error(line, `Unexpected token ${s}`);
         return lex(next, error, line);

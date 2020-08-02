@@ -1,4 +1,4 @@
-import { scanTokens } from './scanner.ts';
+import { scanTokens } from '../interpreter/scanner.ts';
 
 
 main(Deno.args);

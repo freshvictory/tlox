@@ -1,4 +1,4 @@
-import { scanTokens, Token } from './scanner.ts';
+import { scanTokens, Token } from '../interpreter/scanner.ts';
 
 
 console.log();
