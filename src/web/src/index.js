@@ -7,6 +7,7 @@ const app = Elm.Main.init({
 });
 
 app.ports.run.subscribe(function (m) {
-  const res = scanTokens(m, (line, message) => app.ports.error.send({ line, message }));
-  app.ports.result.send(JSON.stringify(res, undefined, 2));
+  const error = (line, message) => app.ports.error.send({ line, message });
+  const res = scanTokens(m, error);
+  app.ports.result.send(res);
 });
