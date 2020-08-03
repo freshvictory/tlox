@@ -12,7 +12,7 @@ async function suite() {
     function test(
       name: string,
       source: string,
-      expected: ([TokenValue, string, number] | [TokenValue, string, number, string | number])[]
+      expected: ([TokenValue, string, number, number] | [TokenValue, string, number, number, string | number])[]
     ) {
       const tokens = scanTokens(source, (l, m) => console.error(l, m));
 
@@ -20,7 +20,8 @@ async function suite() {
         type: e[0],
         lexeme: e[1],
         line: e[2],
-        literal: e[3]
+        start: e[3],
+        literal: e[4]
       }));
 
       logResults('scanner#' + name, expectedTokens, tokens);
@@ -30,10 +31,10 @@ async function suite() {
       'singleCharacter',
       '*-+{',
       [
-        ['STAR', '*', 1],
-        ['MINUS', '-', 1],
-        ['PLUS', '+', 1],
-        ['LEFT_BRACE', '{', 1]
+        ['STAR', '*', 1, 0],
+        ['MINUS', '-', 1, 1],
+        ['PLUS', '+', 1, 2],
+        ['LEFT_BRACE', '{', 1, 3]
       ]
     );
 
@@ -41,16 +42,16 @@ async function suite() {
       'doubleCharacter',
       '!==!,==!==>=<;',
       [
-        ['BANG_EQUAL', '!=', 1],
-        ['EQUAL', '=', 1],
-        ['BANG', '!', 1],
-        ['COMMA', ',', 1],
-        ['EQUAL_EQUAL', '==', 1],
-        ['BANG_EQUAL', '!=', 1],
-        ['EQUAL', '=', 1],
-        ['GREATER_EQUAL', '>=', 1],
-        ['LESS', '<', 1],
-        ['SEMICOLON', ';', 1]
+        ['BANG_EQUAL', '!=', 1, 0],
+        ['EQUAL', '=', 1, 2],
+        ['BANG', '!', 1, 3],
+        ['COMMA', ',', 1, 4],
+        ['EQUAL_EQUAL', '==', 1, 5],
+        ['BANG_EQUAL', '!=', 1, 7],
+        ['EQUAL', '=', 1, 8],
+        ['GREATER_EQUAL', '>=', 1, 9],
+        ['LESS', '<', 1, 11],
+        ['SEMICOLON', ';', 1, 12]
       ]
     );
 
@@ -58,12 +59,12 @@ async function suite() {
       'comments',
       '+-*// hi there\n+/;',
       [
-        ['PLUS', '+', 1],
-        ['MINUS', '-', 1],
-        ['STAR', '*', 1],
-        ['PLUS', '+', 2],
-        ['SLASH', '/', 2],
-        ['SEMICOLON', ';', 2]
+        ['PLUS', '+', 1, 0],
+        ['MINUS', '-', 1, 1],
+        ['STAR', '*', 1, 2],
+        ['PLUS', '+', 2, 16],
+        ['SLASH', '/', 2, 17],
+        ['SEMICOLON', ';', 2, 18]
       ]
     );
 
@@ -71,8 +72,8 @@ async function suite() {
       'string',
       '"Hello, World!";',
       [
-        ['STRING', '"Hello, World!"', 1, 'Hello, World!'],
-        ['SEMICOLON', ';', 1]
+        ['STRING', '"Hello, World!"', 1, 0, 'Hello, World!'],
+        ['SEMICOLON', ';', 1, 17]
       ]
     );
 
@@ -80,10 +81,10 @@ async function suite() {
       'number',
       '12.2 / 300.5;',
       [
-        ['NUMBER', '12.2', 1, 12.2],
-        ['SLASH', '/', 1],
-        ['NUMBER', '300.5', 1, 300.5],
-        ['SEMICOLON', ';', 1]
+        ['NUMBER', '12.2', 1, 0, 12.2],
+        ['SLASH', '/', 1, 5],
+        ['NUMBER', '300.5', 1, 7, 300.5],
+        ['SEMICOLON', ';', 1, 12]
       ]
     );
 
@@ -91,15 +92,15 @@ async function suite() {
       'identifier',
       'var x = hi; for return x;',
       [
-        ['VAR', 'var', 1],
-        ['IDENTIFIER', 'x', 1],
-        ['EQUAL', '=', 1],
-        ['IDENTIFIER', 'hi', 1],
-        ['SEMICOLON', ';', 1],
-        ['FOR', 'for', 1],
-        ['RETURN', 'return', 1],
-        ['IDENTIFIER', 'x', 1],
-        ['SEMICOLON', ';', 1]
+        ['VAR', 'var', 1, 0],
+        ['IDENTIFIER', 'x', 1, 4],
+        ['EQUAL', '=', 1, 6],
+        ['IDENTIFIER', 'hi', 1, 8],
+        ['SEMICOLON', ';', 1, 8],
+        ['FOR', 'for', 1, 10],
+        ['RETURN', 'return', 1, 14],
+        ['IDENTIFIER', 'x', 1, 21],
+        ['SEMICOLON', ';', 1, 22]
       ]
     );
 

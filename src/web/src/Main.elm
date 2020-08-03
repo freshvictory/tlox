@@ -438,6 +438,7 @@ type alias Token =
     { token : String
     , lexeme : String
     , line : Int
+    , start : Int
     , literal : Maybe TokenLiteral
     }
 
@@ -449,10 +450,11 @@ type TokenLiteral
 
 decodeToken : Decoder Token
 decodeToken =
-    Json.Decode.map4 Token
+    Json.Decode.map5 Token
         (field "type" Json.Decode.string)
         (field "lexeme" Json.Decode.string)
         (field "line" Json.Decode.int)
+        (field "start" Json.Decode.int)
         (Json.Decode.maybe (field "literal" decodeTokenLiteral))
 
 

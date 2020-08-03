@@ -1,7 +1,7 @@
 export function scanTokens(source, error) {
-    return lex(source.split(''), error, 1);
+    return lex(source.split(''), error, 1, 0);
 }
-function lex(source, error, line) {
+function lex(source, error, line, start) {
     const [s, ...next] = source;
     switch (s) {
         case undefined:
@@ -9,71 +9,71 @@ function lex(source, error, line) {
         case ' ':
         case '\r':
         case '\t':
-            return lex(next, error, line);
+            return lex(next, error, line, start + 1);
         case '\n':
-            return lex(next, error, line + 1);
+            return lex(next, error, line + 1, start + 1);
         case '(':
             return [
-                { type: 'LEFT_PAREN', lexeme: s, line },
-                ...lex(next, error, line)
+                { type: 'LEFT_PAREN', lexeme: s, line, start },
+                ...lex(next, error, line, start + 1)
             ];
         case ')':
             return [
-                { type: 'RIGHT_PAREN', lexeme: s, line },
-                ...lex(next, error, line)
+                { type: 'RIGHT_PAREN', lexeme: s, line, start },
+                ...lex(next, error, line, start + 1)
             ];
         case '{':
             return [
-                { type: 'LEFT_BRACE', lexeme: s, line },
-                ...lex(next, error, line)
+                { type: 'LEFT_BRACE', lexeme: s, line, start },
+                ...lex(next, error, line, start + 1)
             ];
         case '}':
             return [
-                { type: 'RIGHT_BRACE', lexeme: s, line },
-                ...lex(next, error, line)
+                { type: 'RIGHT_BRACE', lexeme: s, line, start },
+                ...lex(next, error, line, start + 1)
             ];
         case ',':
             return [
-                { type: 'COMMA', lexeme: s, line },
-                ...lex(next, error, line)
+                { type: 'COMMA', lexeme: s, line, start },
+                ...lex(next, error, line, start + 1)
             ];
         case '.':
             return [
-                { type: 'DOT', lexeme: s, line },
-                ...lex(next, error, line)
+                { type: 'DOT', lexeme: s, line, start },
+                ...lex(next, error, line, start + 1)
             ];
         case '-':
             return [
-                { type: 'MINUS', lexeme: s, line },
-                ...lex(next, error, line)
+                { type: 'MINUS', lexeme: s, line, start },
+                ...lex(next, error, line, start + 1)
             ];
         case '+':
             return [
-                { type: 'PLUS', lexeme: s, line },
-                ...lex(next, error, line)
+                { type: 'PLUS', lexeme: s, line, start },
+                ...lex(next, error, line, start + 1)
             ];
         case ';':
             return [
-                { type: 'SEMICOLON', lexeme: s, line },
-                ...lex(next, error, line)
+                { type: 'SEMICOLON', lexeme: s, line, start },
+                ...lex(next, error, line, start + 1)
             ];
         case '*':
             return [
-                { type: 'STAR', lexeme: s, line },
-                ...lex(next, error, line)
+                { type: 'STAR', lexeme: s, line, start },
+                ...lex(next, error, line, start + 1)
             ];
         case '!': {
             const [peek, ...rest] = next;
             switch (peek) {
                 case '=':
                     return [
-                        { type: 'BANG_EQUAL', lexeme: s + peek, line },
-                        ...lex(rest, error, line)
+                        { type: 'BANG_EQUAL', lexeme: s + peek, line, start },
+                        ...lex(rest, error, line, start + s.length)
                     ];
                 default:
                     return [
-                        { type: 'BANG', lexeme: s, line },
-                        ...lex(next, error, line)
+                        { type: 'BANG', lexeme: s, line, start },
+                        ...lex(next, error, line, start + 1)
                     ];
             }
         }
@@ -82,13 +82,13 @@ function lex(source, error, line) {
             switch (peek) {
                 case '=':
                     return [
-                        { type: 'EQUAL_EQUAL', lexeme: s + peek, line },
-                        ...lex(rest, error, line)
+                        { type: 'EQUAL_EQUAL', lexeme: s + peek, line, start },
+                        ...lex(rest, error, line, start + s.length)
                     ];
                 default:
                     return [
-                        { type: 'EQUAL', lexeme: s, line },
-                        ...lex(next, error, line)
+                        { type: 'EQUAL', lexeme: s, line, start },
+                        ...lex(next, error, line, start + 1)
                     ];
             }
         }
@@ -97,13 +97,13 @@ function lex(source, error, line) {
             switch (peek) {
                 case '=':
                     return [
-                        { type: 'LESS_EQUAL', lexeme: s + peek, line },
-                        ...lex(rest, error, line)
+                        { type: 'LESS_EQUAL', lexeme: s + peek, line, start },
+                        ...lex(rest, error, line, start + s.length)
                     ];
                 default:
                     return [
-                        { type: 'LESS', lexeme: s, line },
-                        ...lex(next, error, line)
+                        { type: 'LESS', lexeme: s, line, start },
+                        ...lex(next, error, line, start + 1)
                     ];
             }
         }
@@ -112,13 +112,13 @@ function lex(source, error, line) {
             switch (peek) {
                 case '=':
                     return [
-                        { type: 'GREATER_EQUAL', lexeme: s + peek, line },
-                        ...lex(rest, error, line)
+                        { type: 'GREATER_EQUAL', lexeme: s + peek, line, start },
+                        ...lex(rest, error, line, start + s.length)
                     ];
                 default:
                     return [
-                        { type: 'GREATER', lexeme: s, line },
-                        ...lex(next, error, line)
+                        { type: 'GREATER', lexeme: s, line, start },
+                        ...lex(next, error, line, start + 1)
                     ];
             }
         }
@@ -128,14 +128,16 @@ function lex(source, error, line) {
                 case '/':
                     let comment;
                     let remainder = rest;
+                    let count = 1;
                     do {
                         [comment, ...remainder] = remainder;
+                        count++;
                     } while (comment && comment !== '\n');
-                    return lex(remainder, error, line + 1);
+                    return lex(remainder, error, line + 1, start + count);
                 default:
                     return [
-                        { type: 'SLASH', lexeme: s, line },
-                        ...lex(next, error, line)
+                        { type: 'SLASH', lexeme: s, line, start },
+                        ...lex(next, error, line, start + 1)
                     ];
             }
         }
@@ -157,8 +159,8 @@ function lex(source, error, line) {
             }
             str = str.slice(0, -1);
             return [
-                { type: 'STRING', lexeme: s + str + nextChar, line, literal: str },
-                ...lex(rest, error, lineCount)
+                { type: 'STRING', lexeme: s + str + nextChar, line, literal: str, start },
+                ...lex(rest, error, lineCount, start + str.length + 2)
             ];
         }
         default:
@@ -174,8 +176,8 @@ function lex(source, error, line) {
                         || (nextDigit === '.' && /[0-9]/.test(rest[0]))));
                 rest = [nextDigit, ...rest];
                 return [
-                    { type: 'NUMBER', lexeme: str, line, literal: parseFloat(str) },
-                    ...lex(rest, error, line)
+                    { type: 'NUMBER', lexeme: str, line, literal: parseFloat(str), start },
+                    ...lex(rest, error, line, start + str.length)
                 ];
             }
             else if (/[a-zA-Z]/.test(s)) {
@@ -189,78 +191,78 @@ function lex(source, error, line) {
                 rest = [nextChar, ...rest];
                 switch (str) {
                     case 'and': return [
-                        { type: 'AND', lexeme: str, line },
-                        ...lex(rest, error, line)
+                        { type: 'AND', lexeme: str, line, start },
+                        ...lex(rest, error, line, start + str.length)
                     ];
                     case 'class': return [
-                        { type: 'CLASS', lexeme: str, line },
-                        ...lex(rest, error, line)
+                        { type: 'CLASS', lexeme: str, line, start },
+                        ...lex(rest, error, line, start + str.length)
                     ];
                     case 'else': return [
-                        { type: 'ELSE', lexeme: str, line },
-                        ...lex(rest, error, line)
+                        { type: 'ELSE', lexeme: str, line, start },
+                        ...lex(rest, error, line, start + str.length)
                     ];
                     case 'false': return [
-                        { type: 'FALSE', lexeme: str, line },
-                        ...lex(rest, error, line)
+                        { type: 'FALSE', lexeme: str, line, start },
+                        ...lex(rest, error, line, start + str.length)
                     ];
                     case 'for': return [
-                        { type: 'FOR', lexeme: str, line },
-                        ...lex(rest, error, line)
+                        { type: 'FOR', lexeme: str, line, start },
+                        ...lex(rest, error, line, start + str.length)
                     ];
                     case 'fun': return [
-                        { type: 'FUN', lexeme: str, line },
-                        ...lex(rest, error, line)
+                        { type: 'FUN', lexeme: str, line, start },
+                        ...lex(rest, error, line, start + str.length)
                     ];
                     case 'if': return [
-                        { type: 'IF', lexeme: str, line },
-                        ...lex(rest, error, line)
+                        { type: 'IF', lexeme: str, line, start },
+                        ...lex(rest, error, line, start + str.length)
                     ];
                     case 'nil': return [
-                        { type: 'NIL', lexeme: str, line },
-                        ...lex(rest, error, line)
+                        { type: 'NIL', lexeme: str, line, start },
+                        ...lex(rest, error, line, start + str.length)
                     ];
                     case 'or': return [
-                        { type: 'OR', lexeme: str, line },
-                        ...lex(rest, error, line)
+                        { type: 'OR', lexeme: str, line, start },
+                        ...lex(rest, error, line, start + str.length)
                     ];
                     case 'print': return [
-                        { type: 'PRINT', lexeme: str, line },
-                        ...lex(rest, error, line)
+                        { type: 'PRINT', lexeme: str, line, start },
+                        ...lex(rest, error, line, start + str.length)
                     ];
                     case 'return': return [
-                        { type: 'RETURN', lexeme: str, line },
-                        ...lex(rest, error, line)
+                        { type: 'RETURN', lexeme: str, line, start },
+                        ...lex(rest, error, line, start + str.length)
                     ];
                     case 'super': return [
-                        { type: 'SUPER', lexeme: str, line },
-                        ...lex(rest, error, line)
+                        { type: 'SUPER', lexeme: str, line, start },
+                        ...lex(rest, error, line, start + str.length)
                     ];
                     case 'this': return [
-                        { type: 'THIS', lexeme: str, line },
-                        ...lex(rest, error, line)
+                        { type: 'THIS', lexeme: str, line, start },
+                        ...lex(rest, error, line, start + str.length)
                     ];
                     case 'true': return [
-                        { type: 'TRUE', lexeme: str, line },
-                        ...lex(rest, error, line)
+                        { type: 'TRUE', lexeme: str, line, start },
+                        ...lex(rest, error, line, start + str.length)
                     ];
                     case 'var': return [
-                        { type: 'VAR', lexeme: str, line },
-                        ...lex(rest, error, line)
+                        { type: 'VAR', lexeme: str, line, start },
+                        ...lex(rest, error, line, start + str.length)
                     ];
                     case 'while': return [
-                        { type: 'WHILE', lexeme: str, line },
-                        ...lex(rest, error, line)
+                        { type: 'WHILE', lexeme: str, line, start },
+                        ...lex(rest, error, line, start + str.length)
                     ];
                     default: return [
-                        { type: 'IDENTIFIER', lexeme: str, line },
-                        ...lex(rest, error, line)
+                        { type: 'IDENTIFIER', lexeme: str, line, start },
+                        ...lex(rest, error, line, start + str.length)
                     ];
                 }
             }
             else {
-                error(line, `Unexpected token ${s}`);
-                return lex(next, error, line);
+                error(line, `Unexpected token ${s} starting at ${start}`);
+                return lex(next, error, line, start + 1);
             }
     }
 }
