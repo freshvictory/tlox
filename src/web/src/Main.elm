@@ -135,7 +135,9 @@ viewBody model =
             [ Css.property "display" "grid"
             , Css.property "grid-template-columns" "1fr 1fr"
             , Css.property "grid-template-rows" "auto"
-            , Css.property "column-gap" "0.75rem"
+            , Css.property "column-gap" "2rem"
+            , Css.maxWidth (px 1200)
+            , Css.margin Css.auto
             , Css.padding (rem 0.75)
             ]
         ]
@@ -282,7 +284,8 @@ viewTokens model =
     E.ol
         [ css
             [ Css.property "display" "grid"
-            , Css.property "row-gap" "0.5rem"
+            , Css.boxShadow4 Css.zero Css.zero (px 10) (hex "#ccc")
+            , Css.borderRadius (rem 0.5)
             ]
         ]
         (List.map
@@ -304,17 +307,26 @@ viewTokens model =
                         , Css.property "grid-template-columns" "auto 1fr"
                         , Css.alignItems Css.baseline
                         , Css.padding3 (rem 0.5) (rem 0.75) Css.zero
-                        , Css.borderRadius (rem 0.5)
+                        , Css.firstChild
+                            [ Css.borderTopLeftRadius (rem 0.5)
+                            , Css.borderTopRightRadius (rem 0.5)
+                            ]
+                        , Css.lastChild
+                            [ Css.borderBottomLeftRadius (rem 0.5)
+                            , Css.borderBottomRightRadius (rem 0.5)
+                            ]
                         , if modBy 2 lineNumber == 0 then
-                            Css.backgroundColor (hex "#cdcdcd")
+                            Css.backgroundColor (hex "#cbc8d6")
 
                           else
-                            Css.backgroundColor (hex "#eee")
+                            Css.backgroundColor (hex "#fff")
                         ]
                     ]
                     [ E.span
                         [ css
                             [ Css.lineHeight (Css.num 1)
+                            , Css.color (hex "#333")
+                            , Css.fontFamily Css.monospace
                             ]
                         ]
                         [ E.text (String.fromInt lineNumber) ]
@@ -378,6 +390,7 @@ viewTokenLiteral token =
             , Css.display Css.inlineFlex
             , Css.backgroundColor (hex "#fff")
             , Css.borderRadius (rem 0.25)
+            , Css.boxShadow4 Css.zero Css.zero (px 10) (hex "#ccc")
             , Css.padding (rem 0.5)
             , Css.lineHeight (Css.num 1)
             , Css.margin Css.zero
