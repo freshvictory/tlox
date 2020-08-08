@@ -6,6 +6,11 @@ import Html.Styled as E exposing (Html, toUnstyled)
 import Html.Styled.Attributes exposing (css)
 import Html.Styled.Events exposing (onInput)
 import Json.Decode exposing (Decoder, field)
+import String
+import Json.Decode
+import Json.Decode
+import Json.Decode
+import List
 
 
 
@@ -167,12 +172,13 @@ viewHeader =
 
 
 viewEditor : Model -> Html Msg
-viewEditor _ =
+viewEditor model =
     E.section
         [ css
             []
         ]
         [ viewInput
+        , viewSource model
         ]
 
 
@@ -198,6 +204,48 @@ viewInput =
         , Html.Styled.Attributes.rows 40
         ]
         []
+
+
+viewSource : Model -> Html Msg
+viewSource model =
+    let
+        lines = groupBy .line model.result
+    in
+    E.code
+        []
+        ( List.map
+            (\t -> viewSourceLine t)
+            lines
+        )
+
+
+
+viewSourceLine : List Token -> Html Msg
+viewSourceLine tokens =
+    E.span
+        []
+        ( List.map
+            ( \t -> viewTokenSource t)
+            tokens
+        )
+
+
+viewTokenSource : Token -> Html Msg
+viewTokenSource token =
+    case token.tokenType of
+        IDENTIFIER ->
+            E.span
+                [ css
+                    [ Css.color (hex "#540a43")
+                    ]
+                ]
+                [ E.text token.lexeme
+                ]
+        
+        _ ->
+            E.text token.lexeme
+
+        
 
 
 viewResults : Model -> Html Msg
@@ -278,8 +326,7 @@ viewTabRadio model id label tab =
 viewTokens : Model -> Html Msg
 viewTokens model =
     let
-        tokensByLine =
-            groupBy .line model.result
+        tokensByLine = groupBy .line model.result
     in
     E.ol
         [ css
@@ -354,11 +401,13 @@ viewLine tokens =
                         , Css.marginBottom (rem 0.5)
                         ]
                     ]
-                    [ if t.token == "IDENTIFIER" || t.token == "NUMBER" || t.token == "STRING" then
-                        viewTokenLiteral t
-
-                      else
-                        viewToken t
+                    [ case t.tokenType of
+                        IDENTIFIER -> viewTokenLiteral t
+                        NUMBER -> viewTokenLiteral t
+                        STRING -> viewTokenLiteral t
+                        COMMENT -> viewTokenLiteral t
+                        WHITESPACE -> E.text ""
+                        _ -> viewToken t
                     ]
             )
             tokens
@@ -378,7 +427,7 @@ viewToken token =
             , Css.margin Css.zero
             ]
         ]
-        [ E.text token.token
+        [ E.text token.tokenTypeString
         ]
 
 
@@ -435,12 +484,26 @@ type alias ParseError =
 
 
 type alias Token =
-    { token : String
+    { tokenType : TokenType
+    , tokenTypeString : String
     , lexeme : String
     , line : Int
     , start : Int
     , literal : Maybe TokenLiteral
     }
+
+
+type TokenType
+    = LEFT_PAREN | RIGHT_PAREN
+    | LEFT_BRACE | RIGHT_BRACE
+    | COMMA | DOT | MINUS | PLUS | SEMICOLON | SLASH | STAR
+    | BANG | BANG_EQUAL | EQUAL | EQUAL_EQUAL 
+    | GREATER | GREATER_EQUAL | LESS | LESS_EQUAL
+    | IDENTIFIER | STRING | NUMBER
+    | AND | CLASS | ELSE | FALSE | FUN | FOR
+    | IF | NIL | OR | PRINT | RETURN | SUPER
+    | THIS | TRUE | VAR | WHILE
+    | COMMENT | WHITESPACE | EOF
 
 
 type TokenLiteral
@@ -450,12 +513,64 @@ type TokenLiteral
 
 decodeToken : Decoder Token
 decodeToken =
-    Json.Decode.map5 Token
+    Json.Decode.map6 Token
+        (field "type" decodeTokenType)
         (field "type" Json.Decode.string)
         (field "lexeme" Json.Decode.string)
         (field "line" Json.Decode.int)
         (field "start" Json.Decode.int)
         (Json.Decode.maybe (field "literal" decodeTokenLiteral))
+
+
+decodeTokenType : Decoder TokenType
+decodeTokenType =
+    Json.Decode.string
+        |> Json.Decode.andThen
+            ( \s ->
+                case s of
+                    "LEFT_PAREN" -> Json.Decode.succeed LEFT_PAREN
+                    "RIGHT_PAREN" -> Json.Decode.succeed RIGHT_PAREN
+                    "LEFT_BRACE" -> Json.Decode.succeed LEFT_BRACE
+                    "RIGHT_BRACE" -> Json.Decode.succeed RIGHT_BRACE
+                    "COMMA" -> Json.Decode.succeed COMMA
+                    "DOT" -> Json.Decode.succeed DOT
+                    "MINUS" -> Json.Decode.succeed MINUS
+                    "PLUS" -> Json.Decode.succeed PLUS
+                    "SEMICOLON" -> Json.Decode.succeed SEMICOLON
+                    "SLASH" -> Json.Decode.succeed SLASH
+                    "STAR" -> Json.Decode.succeed STAR
+                    "BANG" -> Json.Decode.succeed BANG
+                    "BANG_EQUAL" -> Json.Decode.succeed BANG_EQUAL
+                    "EQUAL" -> Json.Decode.succeed EQUAL
+                    "EQUAL_EQUAL" -> Json.Decode.succeed EQUAL_EQUAL
+                    "GREATER" -> Json.Decode.succeed GREATER
+                    "GREATER_EQUAL" -> Json.Decode.succeed GREATER_EQUAL
+                    "LESS" -> Json.Decode.succeed LESS
+                    "LESS_EQUAL" -> Json.Decode.succeed LESS_EQUAL
+                    "IDENTIFIER" -> Json.Decode.succeed IDENTIFIER
+                    "STRING" -> Json.Decode.succeed STRING
+                    "NUMBER" -> Json.Decode.succeed NUMBER
+                    "AND" -> Json.Decode.succeed AND
+                    "CLASS" -> Json.Decode.succeed CLASS
+                    "ELSE" -> Json.Decode.succeed ELSE
+                    "FALSE" -> Json.Decode.succeed FALSE
+                    "FUN" -> Json.Decode.succeed FUN
+                    "FOR" -> Json.Decode.succeed FOR
+                    "IF" -> Json.Decode.succeed IF
+                    "NIL" -> Json.Decode.succeed NIL
+                    "OR" -> Json.Decode.succeed OR
+                    "PRINT" -> Json.Decode.succeed PRINT
+                    "RETURN" -> Json.Decode.succeed RETURN
+                    "SUPER" -> Json.Decode.succeed SUPER
+                    "THIS" -> Json.Decode.succeed THIS
+                    "TRUE" -> Json.Decode.succeed TRUE
+                    "VAR" -> Json.Decode.succeed VAR
+                    "WHILE" -> Json.Decode.succeed WHILE
+                    "COMMENT" -> Json.Decode.succeed COMMENT
+                    "WHITESPACE" -> Json.Decode.succeed WHITESPACE
+                    "EOF" -> Json.Decode.succeed EOF
+                    _ -> Json.Decode.fail ("Unexpected token " ++ s)
+            )
 
 
 decodeTokenLiteral : Decoder TokenLiteral
