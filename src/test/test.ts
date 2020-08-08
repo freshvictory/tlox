@@ -1,3 +1,4 @@
+import { Expr } from '../interpreter/parser.ts';
 import { Token, TokenValue } from '../interpreter/scanner.ts';
 
 
@@ -112,6 +113,53 @@ async function suite() {
       ]
     );
 
+  })();
+
+  (async function testParser() {
+    const { prettyPrint } = await import('../interpreter/parser.ts');
+
+    console.log();
+
+    (function testPrettyPrint() {
+      const expression: Expr = {
+        type: 'binary',
+        operator: {
+          type: 'STAR',
+          lexeme: '*',
+          line: 1,
+          start: 0
+        },
+        left: {
+          type: 'unary',
+          operator: {
+            type: 'MINUS',
+            lexeme: '-',
+            line: 1,
+            start: 0
+          },
+          right: {
+            type: 'literal',
+            value: 123
+          }
+        },
+        right: {
+          type: 'grouping',
+          expression: {
+            type: 'literal',
+            value: 45.67
+          }
+        }
+      };
+
+      const actual = prettyPrint(expression);
+      const expected = '(* (- 123) (group 45.67))';
+
+      if (actual === expected) {
+        console.log('parser#prettyPrint: passed');
+      } else {
+        console.log('parser#prettyPrint: failed');
+      }
+    })();
   })();
 
 }
