@@ -1,6 +1,6 @@
 
 
-import { Token } from './scanner.ts';
+import { Token } from './scanner';
 
 
 // Expressions

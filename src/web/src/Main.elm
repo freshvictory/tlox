@@ -19,7 +19,9 @@ import Css.Media
 port run : String -> Cmd msg
 
 
-port result : (Json.Decode.Value -> msg) -> Sub msg
+port scanResult : (Json.Decode.Value -> msg) -> Sub msg
+
+port parseResult : (Json.Decode.Value -> msg) -> Sub msg
 
 
 port error : (Maybe ParseError -> msg) -> Sub msg
@@ -35,7 +37,11 @@ main =
         { view = \model -> { title = "Lox", body = [ model |> view |> toUnstyled ] }
         , init = \_ -> init
         , update = update
-        , subscriptions = \_ -> Sub.batch [ result Result, error Error ]
+        , subscriptions = \_ -> Sub.batch
+            [ scanResult ScanResult
+            , parseResult ParseResult
+            , error Error
+            ]
         }
 
 
@@ -45,7 +51,8 @@ main =
 
 type alias Model =
     { input : String
-    , result : List Token
+    , scanResult : List Token
+    , parseResult : Maybe Expr
     , error : List ParseError
     , tab : Tab
     , hover : Maybe Token
@@ -60,7 +67,8 @@ type Tab
 defaultModel : Model
 defaultModel =
     { input = ""
-    , result = []
+    , scanResult = []
+    , parseResult = Nothing
     , error = []
     , tab = Scanner
     , hover = Nothing
@@ -78,7 +86,8 @@ init =
 
 type Msg
     = Input String
-    | Result Json.Decode.Value
+    | ScanResult Json.Decode.Value
+    | ParseResult Json.Decode.Value
     | Error (Maybe ParseError)
     | TabChange Tab
     | Hover (Maybe Token)
@@ -88,19 +97,31 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         Input s ->
-            ( { model | input = s, error = [], result = [] }
+            ( { model | input = s, error = [], scanResult = [] }
             , run s
             )
 
-        Result v ->
+        ScanResult v ->
             case Json.Decode.decodeValue (Json.Decode.list decodeToken) v of
                 Ok tokens ->
-                    ( { model | result = tokens }
+                    ( { model | scanResult = tokens }
                     , Cmd.none
                     )
 
                 Err _ ->
-                    ( { model | result = [] }
+                    ( { model | scanResult = [] }
+                    , Cmd.none
+                    )
+
+        ParseResult p ->
+            case Json.Decode.decodeValue decodeExpr p of
+                Ok expr ->
+                    ( { model | parseResult = Just expr }
+                    , Cmd.none
+                    )
+                
+                Err _ ->
+                    ( { model | parseResult = Nothing }
                     , Cmd.none
                     )
 
@@ -233,7 +254,7 @@ viewInput =
 viewSource : Model -> Html Msg
 viewSource model =
     let
-        lines = groupBy .line model.result
+        lines = groupBy .line model.scanResult
     in
     E.code
         [ css
@@ -308,13 +329,7 @@ viewResults model =
                 viewTokens model
 
             Parser ->
-                E.span
-                    [ css
-                        [ Css.color (hex "#999")
-                        , Css.fontStyle Css.italic
-                        ]
-                    ]
-                    [ E.text "Not yet implemented." ]
+                viewParserResults model
         ]
 
 
@@ -363,7 +378,7 @@ viewTabRadio model id label tab =
 viewTokens : Model -> Html Msg
 viewTokens model =
     let
-        tokensByLine = model.result
+        tokensByLine = model.scanResult
             |> List.filter (\t -> t.tokenType /= WHITESPACE)
             |> groupBy .line
     in
@@ -494,6 +509,81 @@ viewTokenLiteral token =
         ]
 
 
+viewParserResults : Model -> Html Msg
+viewParserResults model =
+    case model.parseResult of
+        Just expr ->
+            E.ol
+                [ css
+                    [ Css.displayFlex
+                    , Css.flexDirection Css.column
+                    , Css.alignItems Css.center
+                    , Css.textAlign Css.center
+                    , Css.fontFamily Css.monospace
+                    ]
+                ]
+                [ viewExpression expr
+                ]
+        Nothing -> E.text "No results."
+
+
+viewExpression : Expr -> Html Msg
+viewExpression expr =
+    E.li
+        [ css
+            [ Css.displayFlex
+            , Css.flexDirection Css.column
+            , Css.alignItems Css.center
+            , Css.margin (rem 0.75)
+            ]
+        ]
+        ( case expr of
+            Binary b ->
+                [ viewExprChar b.operator.lexeme
+                , E.ol
+                    [ css
+                        [ Css.displayFlex
+                        ]
+                    ]
+                    [ viewExpression b.left
+                    , viewExpression b.right
+                    ]
+                ]
+
+            Unary u ->
+                [ viewExprChar u.operator.lexeme
+                , viewExpression u.right
+                ]
+
+            Grouping g ->
+                [ viewExprChar "()"
+                , viewExpression g
+                ]
+
+            Literal l ->
+                [  viewExprChar
+                    ( case l of
+                        Str s -> s
+                        Num n -> (String.fromFloat n)
+                    )
+                ]
+        )
+
+
+viewExprChar : String -> Html Msg
+viewExprChar s =
+    E.span
+        [  css
+            [ Css.border3 (px 1) Css.solid (hex "#fff")
+            , Css.borderRadius (rem 0.5)
+            , Css.maxWidth Css.maxContent
+            , Css.lineHeight (Css.num 1)
+            , Css.padding (rem 0.5)
+            ]
+        ]
+        [ E.text s ]
+
+
 viewError : Model -> Html Msg
 viewError model =
     case model.error of
@@ -528,6 +618,27 @@ type alias ParseError =
     }
 
 
+type Expr
+    = Binary BinaryExpr
+    | Unary UnaryExpr
+    | Grouping Expr
+    | Literal TokenLiteral
+
+
+type alias BinaryExpr =
+  { left: Expr
+  , right: Expr
+  , operator: Token
+  }
+
+
+type alias UnaryExpr =
+    { operator: Token
+    , right: Expr
+    }
+
+
+
 type alias Token =
     { tokenType : TokenType
     , tokenTypeString : String
@@ -553,7 +664,42 @@ type TokenType
 
 type TokenLiteral
     = Str String
-    | Num Int
+    | Num Float
+
+
+decodeExpr : Decoder Expr
+decodeExpr =
+    field "type" Json.Decode.string
+        |> Json.Decode.andThen decodeExprType
+
+
+decodeExprType : String -> Decoder Expr
+decodeExprType s =
+    case s of
+        "binary" ->
+            Json.Decode.map Binary
+                ( Json.Decode.map3 BinaryExpr
+                    (field "left" decodeExpr)
+                    (field "right" decodeExpr)
+                    (field "operator" decodeToken)
+                )
+
+        "unary" ->
+            Json.Decode.map Unary
+                ( Json.Decode.map2 UnaryExpr
+                    (field "operator" decodeToken)
+                    (field "right" decodeExpr)
+                )
+    
+        "grouping" ->
+            Json.Decode.map Grouping (field "expression" decodeExpr)
+
+        "literal" ->
+            Json.Decode.map Literal (field "value" decodeTokenLiteral)
+
+        _ ->
+            Json.Decode.fail ("Unknown expr type: " ++ s)
+
 
 
 decodeToken : Decoder Token
@@ -622,7 +768,7 @@ decodeTokenLiteral : Decoder TokenLiteral
 decodeTokenLiteral =
     Json.Decode.oneOf
         [ Json.Decode.map Str Json.Decode.string
-        , Json.Decode.map Num Json.Decode.int
+        , Json.Decode.map Num Json.Decode.float
         ]
 
 

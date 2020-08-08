@@ -9,6 +9,36 @@ const app = Elm.Main.init({
 
 app.ports.run.subscribe(function (m) {
   const error = (line, message) => app.ports.error.send({ line, message });
-  const res = scanTokens(m, error);
-  app.ports.result.send(res);
+  const scanner = scanTokens(m, error);
+  app.ports.scanResult.send(scanner);
+  const parser = {
+    type: 'binary',
+    operator: {
+      type: 'STAR',
+      lexeme: '*',
+      line: 1,
+      start: 0
+    },
+    left: {
+      type: 'unary',
+      operator: {
+        type: 'MINUS',
+        lexeme: '-',
+        line: 1,
+        start: 0
+      },
+      right: {
+        type: 'literal',
+        value: 123
+      }
+    },
+    right: {
+      type: 'grouping',
+      expression: {
+        type: 'literal',
+        value: 45.67
+      }
+    }
+  };
+  app.ports.parseResult.send(parser);
 });
