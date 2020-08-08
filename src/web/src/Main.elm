@@ -48,6 +48,7 @@ type alias Model =
     , result : List Token
     , error : List ParseError
     , tab : Tab
+    , hover : Maybe Token
     }
 
 
@@ -62,6 +63,7 @@ defaultModel =
     , result = []
     , error = []
     , tab = Scanner
+    , hover = Nothing
     }
 
 
@@ -79,6 +81,7 @@ type Msg
     | Result Json.Decode.Value
     | Error (Maybe ParseError)
     | TabChange Tab
+    | Hover (Maybe Token)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -115,6 +118,12 @@ update msg model =
 
         TabChange t ->
             ( { model | tab = t }
+            , Cmd.none
+            )
+
+
+        Hover t ->
+            ( { model | hover = t }
             , Cmd.none
             )
 
@@ -236,30 +245,39 @@ viewSource model =
             ]
         ]
         ( List.map
-            (\t -> viewSourceLine t)
+            (\t -> viewSourceLine model t)
             lines
         )
 
 
 
-viewSourceLine : List Token -> Html Msg
-viewSourceLine tokens =
+viewSourceLine : Model -> List Token -> Html Msg
+viewSourceLine model tokens =
     E.pre
         [ css
             [ Css.margin Css.zero
             ]
         ]
         ( List.map
-            ( \t -> viewTokenSource t)
+            ( \t -> viewTokenSource model t)
             tokens
         )
 
 
-viewTokenSource : Token -> Html Msg
-viewTokenSource token =
+viewTokenSource : Model -> Token -> Html Msg
+viewTokenSource model token =
     E.span
         [ Html.Styled.Attributes.class token.tokenTypeString
         , Html.Styled.Attributes.class "token"
+        , Html.Styled.Attributes.class ( case model.hover of
+                Just t ->
+                    if t == token
+                        then
+                            "hover"
+                        else
+                            ""
+                _ -> ""
+            )
         ]
         [ E.text token.lexeme
         ]
@@ -422,6 +440,8 @@ viewLine tokens =
                         , Css.lastChild [ Css.marginRight Css.zero ]
                         , Css.marginBottom (rem 0.5)
                         ]
+                    , Html.Styled.Events.onMouseOver (Hover (Just t))
+                    , Html.Styled.Events.onMouseLeave (Hover Nothing)
                     ]
                     [ case t.tokenType of
                         IDENTIFIER -> viewTokenLiteral t

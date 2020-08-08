@@ -26,6 +26,10 @@
   .COMMENT {
     --t-color: #a3a3a3;
   }
+
+  .hover {
+    background-color: #a8ff05;
+  }
 }
 
 @media (prefers-color-scheme: dark) {
@@ -49,5 +53,9 @@
   
   .COMMENT {
     --t-color: #8e8e8e;
+  }
+
+  .hover {
+    background-color: #005500;
   }
 }
