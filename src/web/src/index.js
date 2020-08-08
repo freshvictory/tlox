@@ -1,4 +1,5 @@
 import './main.css';
+import './code.css';
 import { Elm } from './Main.elm';
 import { scanTokens } from './lib/scanner';
 

@@ -1,16 +1,15 @@
 port module Main exposing (main)
 
 import Browser
-import Css exposing (hex, pct, px, rem)
+import Css exposing (Style, hex, pct, px, rem)
 import Html.Styled as E exposing (Html, toUnstyled)
 import Html.Styled.Attributes exposing (css)
 import Html.Styled.Events exposing (onInput)
 import Json.Decode exposing (Decoder, field)
 import String
-import Json.Decode
-import Json.Decode
-import Json.Decode
 import List
+import Theme exposing (Theme, light, dark)
+import Css.Media
 
 
 
@@ -127,7 +126,14 @@ update msg model =
 view : Model -> Html Msg
 view model =
     E.div
-        []
+        [ css
+            [ themed
+                [ (Css.backgroundColor, .background)
+                , (Css.color, .text)
+                ]
+            ]
+        , Html.Styled.Attributes.id "app"
+        ]
         [ viewHeader
         , viewBody model
         ]
@@ -175,7 +181,13 @@ viewEditor : Model -> Html Msg
 viewEditor model =
     E.section
         [ css
-            []
+            [ Css.borderRadius (rem 0.25)
+            , Css.position Css.relative
+            , themed
+                [ (Css.boxShadow4 Css.zero Css.zero (px 10), .shadow )
+                , (Css.backgroundColor, .softBackground)
+                ]
+            ]
         ]
         [ viewInput
         , viewSource model
@@ -187,16 +199,19 @@ viewInput =
     E.textarea
         [ onInput Input
         , css
-            [ Css.padding (rem 0.75)
-            , Css.borderRadius (rem 0.25)
+            [ Css.borderRadius (rem 0.25)
+            , Css.padding (rem 0.75)
             , Css.border Css.zero
-            , Css.boxShadow4 Css.zero Css.zero (px 10) (hex "#ccc")
+            , Css.color Css.inherit
             , Css.fontSize Css.inherit
-            , Css.fontFamily Css.monospace
             , Css.width (pct 100)
             , Css.boxSizing Css.borderBox
             , Css.resize Css.none
             , Css.overflow Css.auto
+            , Css.fontFamily Css.monospace
+            , Css.margin Css.zero
+            , Css.backgroundColor Css.transparent
+            , Css.property "caret-color" "inherit"
             ]
         , Html.Styled.Attributes.autocomplete False
         , Html.Styled.Attributes.attribute "autocapitalize" "none"
@@ -212,7 +227,14 @@ viewSource model =
         lines = groupBy .line model.result
     in
     E.code
-        []
+        [ css
+            [ Css.padding (rem 0.75)
+            , Css.position Css.absolute
+            , Css.left Css.zero
+            , Css.top Css.zero
+            , Css.pointerEvents Css.none
+            ]
+        ]
         ( List.map
             (\t -> viewSourceLine t)
             lines
@@ -222,8 +244,11 @@ viewSource model =
 
 viewSourceLine : List Token -> Html Msg
 viewSourceLine tokens =
-    E.span
-        []
+    E.pre
+        [ css
+            [ Css.margin Css.zero
+            ]
+        ]
         ( List.map
             ( \t -> viewTokenSource t)
             tokens
@@ -232,18 +257,12 @@ viewSourceLine tokens =
 
 viewTokenSource : Token -> Html Msg
 viewTokenSource token =
-    case token.tokenType of
-        IDENTIFIER ->
-            E.span
-                [ css
-                    [ Css.color (hex "#540a43")
-                    ]
-                ]
-                [ E.text token.lexeme
-                ]
-        
-        _ ->
-            E.text token.lexeme
+    E.span
+        [ Html.Styled.Attributes.class token.tokenTypeString
+        , Html.Styled.Attributes.class "token"
+        ]
+        [ E.text token.lexeme
+        ]
 
         
 
@@ -287,7 +306,7 @@ viewTabRadio model id label tab =
         [ css
             [ Css.lineHeight (Css.num 1)
             , Css.padding (rem 0.5)
-            , Css.border3 (px 1) Css.solid (hex "402945")
+            , Css.border3 (px 1) Css.solid (hex light.purple)
             , Css.display Css.block
             , Css.firstChild
                 [ Css.borderTopLeftRadius (rem 0.25)
@@ -299,7 +318,7 @@ viewTabRadio model id label tab =
                 ]
             , if model.tab == tab then
                 Css.batch
-                    [ Css.backgroundColor (hex "402945")
+                    [ Css.backgroundColor (hex light.purple)
                     , Css.color (hex "fff")
                     ]
 
@@ -326,12 +345,14 @@ viewTabRadio model id label tab =
 viewTokens : Model -> Html Msg
 viewTokens model =
     let
-        tokensByLine = groupBy .line model.result
+        tokensByLine = model.result
+            |> List.filter (\t -> t.tokenType /= WHITESPACE)
+            |> groupBy .line
     in
     E.ol
         [ css
             [ Css.property "display" "grid"
-            , Css.boxShadow4 Css.zero Css.zero (px 10) (hex "#ccc")
+            , themed [(Css.boxShadow4 Css.zero Css.zero (px 10), .shadow)]
             , Css.borderRadius (rem 0.5)
             ]
         ]
@@ -362,17 +383,18 @@ viewTokens model =
                             [ Css.borderBottomLeftRadius (rem 0.5)
                             , Css.borderBottomRightRadius (rem 0.5)
                             ]
-                        , if modBy 2 lineNumber == 0 then
-                            Css.backgroundColor (hex "#cbc8d6")
+                        , themed [
+                            if modBy 2 lineNumber == 0 then
+                                (Css.backgroundColor, .contrastBackground)
 
-                          else
-                            Css.backgroundColor (hex "#fff")
+                            else
+                                (Css.backgroundColor, .background)
+                            ]
                         ]
                     ]
                     [ E.span
                         [ css
                             [ Css.lineHeight (Css.num 1)
-                            , Css.color (hex "#333")
                             , Css.fontFamily Css.monospace
                             ]
                         ]
@@ -406,9 +428,9 @@ viewLine tokens =
                         NUMBER -> viewTokenLiteral t
                         STRING -> viewTokenLiteral t
                         COMMENT -> viewTokenLiteral t
-                        WHITESPACE -> E.text ""
                         _ -> viewToken t
                     ]
+                        
             )
             tokens
         )
@@ -421,6 +443,7 @@ viewToken token =
             [ Css.maxWidth Css.maxContent
             , Css.display Css.inlineFlex
             , Css.backgroundColor (hex "#c3f0e4")
+            , Css.color (hex "#333")
             , Css.borderRadius (rem 0.25)
             , Css.padding (rem 0.5)
             , Css.lineHeight (Css.num 1)
@@ -437,9 +460,11 @@ viewTokenLiteral token =
         [ css
             [ Css.maxWidth Css.maxContent
             , Css.display Css.inlineFlex
-            , Css.backgroundColor (hex "#fff")
+            , themed
+                [ (Css.backgroundColor, .softBackground)
+                , (Css.boxShadow4 Css.zero Css.zero (px 10), .shadow)
+                ]
             , Css.borderRadius (rem 0.25)
-            , Css.boxShadow4 Css.zero Css.zero (px 10) (hex "#ccc")
             , Css.padding (rem 0.5)
             , Css.lineHeight (Css.num 1)
             , Css.margin Css.zero
@@ -600,3 +625,24 @@ groupBy prop l =
                     List.filter (\s -> prop s /= prop x) xs
             in
             (x :: y) :: groupBy prop z
+
+
+
+themed : List (Css.Color -> Style, Theme -> String) -> Style
+themed styles =
+    Css.batch
+        [ Css.Media.withMediaQuery [ "(prefers-color-scheme: dark)" ]
+            ( List.map
+                ( \(s, t) ->
+                    s (Css.hex (t dark))
+                )
+                styles
+            )
+        , Css.Media.withMediaQuery [ "(prefers-color-scheme: light)" ]
+            ( List.map
+                ( \(s, t) ->
+                    s (Css.hex (t light))
+                )
+                styles
+            )
+        ]

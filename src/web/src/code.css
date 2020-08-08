@@ -1,0 +1,53 @@
+.token {
+  --t-color: inherit;
+
+  color: var(--t-color);
+}
+
+@media (prefers-color-scheme: light) {
+  .IDENTIFIER {
+    --t-color: #c27e0f;
+  }
+  
+  .AND, .CLASS, .ELSE, .FALSE, .FUN, .FOR,
+  .IF, .NIL, .OR, .PRINT, .RETURN, .SUPER,
+  .THIS, .TRUE, .VAR, .WHILE {
+    --t-color: #3e7dde;
+  }
+  
+  .NUMBER {
+    --t-color: #ec3ddb;
+  }
+  
+  .STRING {
+    --t-color: #4cb443;
+  }
+  
+  .COMMENT {
+    --t-color: #a3a3a3;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .IDENTIFIER {
+    --t-color: orange;
+  }
+  
+  .AND, .CLASS, .ELSE, .FALSE, .FUN, .FOR,
+  .IF, .NIL, .OR, .PRINT, .RETURN, .SUPER,
+  .THIS, .TRUE, .VAR, .WHILE {
+    --t-color: #32acf0;
+  }
+  
+  .NUMBER {
+    --t-color: #dd63dd;
+  }
+  
+  .STRING {
+    --t-color: #4cb443;
+  }
+  
+  .COMMENT {
+    --t-color: #8e8e8e;
+  }
+}
