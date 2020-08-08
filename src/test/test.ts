@@ -62,6 +62,8 @@ async function suite() {
         ['PLUS', '+', 1, 0],
         ['MINUS', '-', 1, 1],
         ['STAR', '*', 1, 2],
+        ['COMMENT', '// hi there', 1, 3],
+        ['WHITESPACE', '\n', 1, 13],
         ['PLUS', '+', 2, 16],
         ['SLASH', '/', 2, 17],
         ['SEMICOLON', ';', 2, 18]
@@ -79,7 +81,7 @@ async function suite() {
 
     test(
       'number',
-      '12.2 / 300.5;',
+      '12.2/300.5;',
       [
         ['NUMBER', '12.2', 1, 0, 12.2],
         ['SLASH', '/', 1, 5],
@@ -93,12 +95,18 @@ async function suite() {
       'var x = hi; for return x;',
       [
         ['VAR', 'var', 1, 0],
+        ['WHITESPACE', ' ', 1, 3],
         ['IDENTIFIER', 'x', 1, 4],
+        ['WHITESPACE', ' ', 1, 5],
         ['EQUAL', '=', 1, 6],
+        ['WHITESPACE', ' ', 1, 7],
         ['IDENTIFIER', 'hi', 1, 8],
         ['SEMICOLON', ';', 1, 8],
+        ['WHITESPACE', ' ', 1, 9],
         ['FOR', 'for', 1, 10],
+        ['WHITESPACE', ' ', 1, 13],
         ['RETURN', 'return', 1, 14],
+        ['WHITESPACE', ' ', 1, 20],
         ['IDENTIFIER', 'x', 1, 21],
         ['SEMICOLON', ';', 1, 22]
       ]

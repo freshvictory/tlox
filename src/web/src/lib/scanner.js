@@ -8,10 +8,14 @@ function lex(source, error, line, start) {
             return [];
         case ' ':
         case '\r':
-        case '\t':
-            return lex(next, error, line, start + 1);
-        case '\n':
-            return lex(next, error, line + 1, start + 1);
+        case '\t': return [
+            { type: 'WHITESPACE', lexeme: s, line, start },
+            ...lex(next, error, line, start + 1)
+        ];
+        case '\n': return [
+            { type: 'WHITESPACE', lexeme: s, line, start },
+            ...lex(next, error, line + 1, start + 1)
+        ];
         case '(':
             return [
                 { type: 'LEFT_PAREN', lexeme: s, line, start },
@@ -126,14 +130,23 @@ function lex(source, error, line, start) {
             const [peek, ...rest] = next;
             switch (peek) {
                 case '/':
-                    let comment;
+                    let commentChar;
+                    let comment = '//';
                     let remainder = rest;
                     let count = 1;
                     do {
-                        [comment, ...remainder] = remainder;
+                        [commentChar, ...remainder] = remainder;
+                        comment += (commentChar || '');
                         count++;
-                    } while (comment && comment !== '\n');
-                    return lex(remainder, error, line + 1, start + count);
+                    } while (commentChar && commentChar !== '\n');
+                    if (commentChar) {
+                        comment = comment.slice(0, -1);
+                        remainder = [commentChar, ...remainder];
+                    }
+                    return [
+                        { type: 'COMMENT', lexeme: comment, line, start },
+                        ...lex(remainder, error, line, start + count)
+                    ];
                 default:
                     return [
                         { type: 'SLASH', lexeme: s, line, start },
