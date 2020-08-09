@@ -186,6 +186,8 @@ async function suite() {
 }
 
 function checkTokens(first: Token[], second: Token[]): [boolean, string | null] {
+  second.length--; // Remove EOF token
+
   if (first.length !== second.length) {
     return [
       false,
