@@ -1,3 +1,4 @@
+import { parse, prettyPrint } from '../interpreter/parser.ts';
 import { scanTokens } from '../interpreter/scanner.ts';
 
 
@@ -43,8 +44,12 @@ async function runPrompt() {
 
 async function run(program: string) {
   const tokens = scanTokens(program, error);
+  const expressions = parse(tokens, (t, m) => console.error(`Error parsing token: ${t}: m`));
 
-  console.log(tokens);
+  console.log(expressions
+    ? prettyPrint(expressions)
+    : 'Invalid expression.'
+  );
 }
 
 

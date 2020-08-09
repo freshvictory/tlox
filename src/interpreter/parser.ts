@@ -1,4 +1,4 @@
-import { Token, TokenValue } from './scanner';
+import { Token, TokenValue } from './scanner.ts';
 
 
 // Expressions
