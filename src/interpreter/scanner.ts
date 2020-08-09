@@ -63,7 +63,7 @@ function lex(
 
   switch (s) {
     case undefined:
-      return [{ type: 'EOF', lexeme: '', line: line + 1, start }];
+      return [{ type: 'EOF', lexeme: '', line: line, start }];
     case ' ':
     case '\r':
     case '\t': return [

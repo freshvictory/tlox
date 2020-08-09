@@ -10,6 +10,7 @@ import String
 import List
 import Theme exposing (Theme, light, dark)
 import Css.Media
+import Css.Global
 
 
 
@@ -70,7 +71,7 @@ defaultModel =
     , scanResult = []
     , parseResult = Nothing
     , error = []
-    , tab = Parser
+    , tab = Scanner
     , hover = Nothing
     }
 
@@ -213,15 +214,51 @@ viewEditor model =
         [ css
             [ Css.borderRadius (rem 0.25)
             , Css.position Css.relative
+            , Css.minHeight (rem (1.5 * 25))
+            , Css.lineHeight (Css.num 1.5)
+            , Css.property "display" "grid"
+            , Css.property "grid-template-columns" "minmax(2rem, auto) 1fr"
+            , Css.property "column-gap" "0.25em"
             , themed
-                [ (Css.boxShadow4 Css.zero Css.zero (px 10), .shadow )
-                , (Css.backgroundColor, .softBackground)
+                [ (Css.border3 (px 2) Css.solid, .softBackground) ]
+            ]
+        ]
+        [ viewLines model
+        , viewInput
+        , viewSource model
+        ]
+
+
+viewLines : Model -> Html Msg
+viewLines model =
+    let lines = groupBy .line model.scanResult in
+    E.ol
+        [ css
+            [ Css.property "grid-row" "1"
+            , Css.property "grid-column" "1"
+            , Css.padding (rem 0.5)
+            , themed
+                [ (Css.backgroundColor, .softBackground)
+                , (Css.color, .softText)
+                , (Css.boxShadow6 Css.inset (px -7) Css.zero (px 9) (px -7), .shadow)
                 ]
             ]
         ]
-        [ viewInput
-        , viewSource model
-        ]
+        ( List.map
+            ( \n ->
+                E.li
+                    [ css
+                        [ Css.fontSize (rem 0.8)
+                        , Css.height (rem 1.5)
+                        , Css.displayFlex
+                        , Css.alignItems Css.center
+                        , Css.justifyContent Css.flexEnd
+                        ]
+                    ]
+                    [ E.pre [] [ E.text (String.fromInt n) ] ]
+            )
+            (List.range 1 (max (List.length lines) 25))
+        )
 
 
 viewInput : Html Msg
@@ -229,9 +266,8 @@ viewInput =
     E.textarea
         [ onInput Input
         , css
-            [ Css.borderRadius (rem 0.25)
-            , Css.padding (rem 0.75)
-            , Css.border Css.zero
+            [ Css.border Css.zero
+            , Css.padding2 (rem 0.5) Css.zero
             , Css.color Css.inherit
             , Css.fontSize Css.inherit
             , Css.width (pct 100)
@@ -242,11 +278,13 @@ viewInput =
             , Css.margin Css.zero
             , Css.backgroundColor Css.transparent
             , Css.property "caret-color" "inherit"
+            , Css.property "grid-column" "2"
+            , Css.property "grid-row" "1"
+            , Css.focus [ Css.outline Css.none ]
             ]
         , Html.Styled.Attributes.autocomplete False
         , Html.Styled.Attributes.attribute "autocapitalize" "none"
         , Html.Styled.Attributes.spellcheck False
-        , Html.Styled.Attributes.rows 40
         ]
         []
 
@@ -258,12 +296,10 @@ viewSource model =
     in
     E.code
         [ css
-            [ Css.margin (rem 0.75)
-            , Css.position Css.absolute
-            , Css.left Css.zero
-            , Css.top Css.zero
+            [ Css.margin2 (rem 0.5) Css.zero
+            , Css.property "grid-column" "2"
+            , Css.property "grid-row" "1"
             , Css.pointerEvents Css.none
-            , themed [(Css.textShadow4 Css.zero Css.zero (px 1), .softBackground)]
             ]
         ]
         ( List.map
@@ -276,9 +312,7 @@ viewSource model =
 viewSourceLine : Model -> List Token -> Html Msg
 viewSourceLine model tokens =
     E.pre
-        [ css
-            [ Css.margin Css.zero
-            ]
+        [ css [ Css.display Css.inline ]
         ]
         ( List.map
             ( \t -> viewTokenSource model t)
@@ -289,7 +323,10 @@ viewSourceLine model tokens =
 viewTokenSource : Model -> Token -> Html Msg
 viewTokenSource model token =
     E.span
-        [ Html.Styled.Attributes.class token.tokenTypeString
+        [ css 
+            [ Css.textShadow2 Css.zero Css.zero
+            ]
+        , Html.Styled.Attributes.class token.tokenTypeString
         , Html.Styled.Attributes.class "token"
         , Html.Styled.Attributes.class ( case model.hover of
                 Just t ->
@@ -336,7 +373,7 @@ viewResults model =
 
 viewTabRadio : Model -> String -> String -> Tab -> Html Msg
 viewTabRadio model id label tab =
-    E.div
+    E.label
         [ css
             [ Css.lineHeight (Css.num 1)
             , Css.padding (rem 0.5)
@@ -359,6 +396,7 @@ viewTabRadio model id label tab =
               else
                 Css.batch []
             ]
+        , Html.Styled.Attributes.for ("result-" ++ id)
         ]
         [ E.input
             [ Html.Styled.Attributes.type_ "radio"
@@ -369,10 +407,7 @@ viewTabRadio model id label tab =
             , css [ Css.display Css.none ]
             ]
             []
-        , E.label
-            [ Html.Styled.Attributes.for ("result-" ++ id)
-            ]
-            [ E.text label ]
+        , E.text label
         ]
 
 
@@ -417,13 +452,13 @@ viewTokens model =
                             [ Css.borderBottomLeftRadius (rem 0.5)
                             , Css.borderBottomRightRadius (rem 0.5)
                             ]
-                        , themed [
-                            if modBy 2 lineNumber == 0 then
-                                (Css.backgroundColor, .contrastBackground)
-
-                            else
-                                (Css.backgroundColor, .background)
-                            ]
+                        , themed
+                            [ (Css.backgroundColor, .background) ]
+                        , Css.nthChild "2n" 
+                                [ themed
+                                    [ (Css.backgroundColor, .contrastBackground)
+                                    ]
+                                ]
                         ]
                     ]
                     [ E.span
@@ -541,7 +576,7 @@ viewExpression expr =
                     Str s -> s
                     Num n -> (String.fromFloat n)
                     Boolean b -> if b then "true" else "false"
-                    Nil -> "null"
+                    Nil -> "nil"
                 )
     in
     E.li
