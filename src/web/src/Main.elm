@@ -380,7 +380,7 @@ viewTokens : Model -> Html Msg
 viewTokens model =
     let
         tokensByLine = model.scanResult
-            |> List.filter (\t -> t.tokenType /= WHITESPACE)
+            |> List.filter (\t -> t.tokenType /= WHITESPACE && t.tokenType /= EOF)
             |> groupBy .line
     in
     E.ol
@@ -530,6 +530,20 @@ viewParserResults model =
 
 viewExpression : Expr -> Html Msg
 viewExpression expr =
+    let
+        (token, char) = case expr of
+            Binary b -> (b.operator, b.operator.lexeme)
+            Unary u -> (u.operator, u.operator.lexeme)
+            Grouping g -> (g.token, "()")
+            Literal l ->
+                ( l.token
+                , case l.value of
+                    Str s -> s
+                    Num n -> (String.fromFloat n)
+                    Boolean b -> if b then "true" else "false"
+                    Nil -> "null"
+                )
+    in
     E.li
         [ css
             [ Css.displayFlex
@@ -538,10 +552,10 @@ viewExpression expr =
             , Css.margin (rem 0.75)
             ]
         ]
-        ( case expr of
+        [ viewExprChar token char
+        , case expr of
             Binary b ->
-                [ viewExprChar b.operator.lexeme
-                , E.ol
+                E.ol
                     [ css
                         [ Css.displayFlex
                         ]
@@ -549,30 +563,20 @@ viewExpression expr =
                     [ viewExpression b.left
                     , viewExpression b.right
                     ]
-                ]
 
             Unary u ->
-                [ viewExprChar u.operator.lexeme
-                , viewExpression u.right
-                ]
+                viewExpression u.right
 
             Grouping g ->
-                [ viewExprChar "()"
-                , viewExpression g
-                ]
+                viewExpression g.expression
 
             Literal l ->
-                [  viewExprChar
-                    ( case l of
-                        Str s -> s
-                        Num n -> (String.fromFloat n)
-                    )
-                ]
-        )
+                E.text ""
+        ]
 
 
-viewExprChar : String -> Html Msg
-viewExprChar s =
+viewExprChar : Token -> String -> Html Msg
+viewExprChar token s =
     E.span
         [  css
             [ Css.border3 (px 1) Css.solid (hex "#fff")
@@ -581,6 +585,8 @@ viewExprChar s =
             , Css.lineHeight (Css.num 1)
             , Css.padding (rem 0.5)
             ]
+        , Html.Styled.Events.onMouseOver (Hover (Just token))
+        , Html.Styled.Events.onMouseLeave (Hover Nothing)
         ]
         [ E.text s ]
 
@@ -622,8 +628,8 @@ type alias ParseError =
 type Expr
     = Binary BinaryExpr
     | Unary UnaryExpr
-    | Grouping Expr
-    | Literal TokenLiteral
+    | Grouping GroupingExpr
+    | Literal LiteralExpr
 
 
 type alias BinaryExpr =
@@ -636,6 +642,18 @@ type alias BinaryExpr =
 type alias UnaryExpr =
     { operator: Token
     , right: Expr
+    }
+
+
+type alias GroupingExpr =
+    { expression: Expr
+    , token: Token
+    }
+
+
+type alias LiteralExpr =
+    { value: TokenLiteral
+    , token: Token
     }
 
 
@@ -666,6 +684,8 @@ type TokenType
 type TokenLiteral
     = Str String
     | Num Float
+    | Boolean Bool
+    | Nil
 
 
 decodeExpr : Decoder Expr
@@ -693,10 +713,18 @@ decodeExprType s =
                 )
     
         "grouping" ->
-            Json.Decode.map Grouping (field "expression" decodeExpr)
+            Json.Decode.map Grouping
+                ( Json.Decode.map2 GroupingExpr
+                    (field "expression" decodeExpr)
+                    (field "token" decodeToken)
+                )
 
         "literal" ->
-            Json.Decode.map Literal (field "value" decodeTokenLiteral)
+            Json.Decode.map Literal
+                ( Json.Decode.map2 LiteralExpr
+                    (field "value" decodeTokenLiteral)
+                    (field "token" decodeToken)
+                )
 
         _ ->
             Json.Decode.fail ("Unknown expr type: " ++ s)
@@ -770,6 +798,8 @@ decodeTokenLiteral =
     Json.Decode.oneOf
         [ Json.Decode.map Str Json.Decode.string
         , Json.Decode.map Num Json.Decode.float
+        , Json.Decode.map Boolean Json.Decode.bool
+        , Json.Decode.null Nil
         ]
 
 

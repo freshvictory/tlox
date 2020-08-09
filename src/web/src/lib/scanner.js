@@ -5,7 +5,7 @@ function lex(source, error, line, start) {
     const [s, ...next] = source;
     switch (s) {
         case undefined:
-            return [];
+            return [{ type: 'EOF', lexeme: '', line: line + 1, start }];
         case ' ':
         case '\r':
         case '\t': return [
