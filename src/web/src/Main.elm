@@ -70,7 +70,7 @@ defaultModel =
     , scanResult = []
     , parseResult = Nothing
     , error = []
-    , tab = Scanner
+    , tab = Parser
     , hover = Nothing
     }
 
@@ -258,11 +258,12 @@ viewSource model =
     in
     E.code
         [ css
-            [ Css.padding (rem 0.75)
+            [ Css.margin (rem 0.75)
             , Css.position Css.absolute
             , Css.left Css.zero
             , Css.top Css.zero
             , Css.pointerEvents Css.none
+            , themed [(Css.textShadow4 Css.zero Css.zero (px 1), .softBackground)]
             ]
         ]
         ( List.map
