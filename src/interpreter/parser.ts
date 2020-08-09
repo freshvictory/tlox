@@ -7,24 +7,80 @@ import { Token } from './scanner';
 
 export type Expr =
   | {
-    type: 'binary'
+    type: 'binary',
     left: Expr,
     operator: Token,
     right: Expr
   }
   | {
-    type: 'unary'
+    type: 'unary',
     operator: Token,
     right: Expr
   }
   | {
-    type: 'grouping'
+    type: 'grouping',
+    token: Token,
     expression: Expr
   }
   | {
-    type: 'literal'
+    type: 'literal',
+    token: Token,
     value: unknown
   };
+
+
+export function parse(tokens: Token[]): Expr {
+  return {
+    type: 'binary',
+    operator: {
+      type: 'STAR',
+      lexeme: '*',
+      line: 1,
+      start: 0
+    },
+    left: {
+      type: 'unary',
+      operator: {
+        type: 'MINUS',
+        lexeme: '-',
+        line: 1,
+        start: 0
+      },
+      right: {
+        type: 'literal',
+        token: {
+          type: 'NUMBER',
+          lexeme: '123',
+          literal: 123,
+          line: 1,
+          start: 0
+        },
+        value: 123
+      }
+    },
+    right: {
+      type: 'grouping',
+      token: {
+        type: 'NUMBER',
+        lexeme: '123',
+        literal: 123,
+        line: 1,
+        start: 0
+      },
+      expression: {
+        type: 'literal',
+        token: {
+          type: 'NUMBER',
+          lexeme: '45.67',
+          literal: 45.67,
+          line: 1,
+          start: 0
+        },
+        value: 45.67
+      }
+    }
+  };
+}
 
 
 export function prettyPrint(expression: Expr): string {

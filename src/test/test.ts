@@ -139,13 +139,34 @@ async function suite() {
           },
           right: {
             type: 'literal',
+            token: {
+              type: 'NUMBER',
+              lexeme: '123',
+              literal: 123,
+              line: 1,
+              start: 0
+            },
             value: 123
           }
         },
         right: {
           type: 'grouping',
+          token: {
+            type: 'NUMBER',
+            lexeme: '123',
+            literal: 123,
+            line: 1,
+            start: 0
+          },
           expression: {
             type: 'literal',
+            token: {
+              type: 'NUMBER',
+              lexeme: '123',
+              literal: 123,
+              line: 1,
+              start: 0
+            },
             value: 45.67
           }
         }
