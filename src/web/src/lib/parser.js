@@ -74,8 +74,12 @@ function matchPrimary(tokens, error) {
             rest
         ];
         case 'LEFT_PAREN':
-            let expr;
+            let expr, next;
             [expr, rest] = matchExpression(rest, error);
+            [next, ...rest] = rest;
+            if (next.type !== 'RIGHT_PAREN') {
+                throw parseError(error, next, "Expected closing parenthesis.");
+            }
             return [
                 {
                     type: 'grouping',
@@ -88,6 +92,31 @@ function matchPrimary(tokens, error) {
             error(token, "Unknown token.");
             return matchPrimary(rest, error);
     }
+}
+function synchronize(tokens) {
+    var _a;
+    let next, rest;
+    do {
+        [next, ...rest] = tokens;
+        if (next.type === 'SEMICOLON') {
+            return rest;
+        }
+        switch ((_a = rest[0]) === null || _a === void 0 ? void 0 : _a.type) {
+            case 'VAR':
+            case 'FUN':
+            case 'CLASS':
+            case 'FOR':
+            case 'IF':
+            case 'PRINT':
+            case 'RETURN':
+            case 'WHILE':
+                return rest;
+        }
+    } while (next);
+}
+function parseError(error, token, message) {
+    error(token, message);
+    return new Error(message);
 }
 function matchBinary(child, symbols, tokens, error) {
     let [expr, rest] = child(tokens, error);

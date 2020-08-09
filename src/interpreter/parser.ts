@@ -1,4 +1,4 @@
-import { Token, TokenValue } from './scanner.ts';
+import { Token, TokenValue } from './scanner';
 
 
 // Expressions
@@ -170,8 +170,14 @@ function matchPrimary(
     ];
 
     case 'LEFT_PAREN':
-      let expr: Expr;
+      let expr: Expr, next: Token;
       [expr, rest] = matchExpression(rest, error);
+      
+      [next, ...rest] = rest;
+      if (next.type !== 'RIGHT_PAREN') {
+        throw parseError(error, next, "Expected closing parenthesis.");
+      }
+
       return [
         {
           type: 'grouping',
@@ -179,12 +185,48 @@ function matchPrimary(
           token
         },
         rest
-      ]
+      ];
 
     default:
       error(token, "Unknown token.");
       return matchPrimary(rest, error);
   }
+}
+
+
+function synchronize(tokens: Token[]): Token[] {
+  let next: Token, rest: Token[];
+
+  do {
+    [next, ...rest] = tokens;
+
+    if (next.type === 'SEMICOLON') {
+      return rest;
+    }
+
+    switch (rest[0]?.type) {
+      case 'VAR':
+      case 'FUN':
+      case 'CLASS':
+      case 'FOR':
+      case 'IF':
+      case 'PRINT':
+      case 'RETURN':
+      case 'WHILE':
+        return rest;
+    }
+  } while (next);
+}
+
+
+function parseError(
+  error: (t: Token, m: string) => void,
+  token: Token,
+  message: string
+): Error {
+  error(token, message);
+
+  return new Error(message);
 }
 
 
