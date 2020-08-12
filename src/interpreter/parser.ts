@@ -1,4 +1,4 @@
-import { Token, TokenValue } from './scanner';
+import type { Token, TokenType } from './scanner';
 
 
 // Expressions
@@ -26,270 +26,234 @@ export type Expr =
     value: unknown
   };
 
+class ParseError extends Error {};
+
+class Parser {
+  private readonly tokens: ReadonlyArray<Token>;
+  private readonly errorInternal: (t: Token, m: string) => void;
+  private current = 0;
+
+  constructor(tokens: Token[], error: (t: Token, m: string) => void) {
+    this.tokens = tokens;
+    this.errorInternal = error;
+  }
+
+  public parse(): Expr {
+    try {
+      return this.expression();
+    } catch (e) {
+      return null;
+    }
+  }
+
+  private match(...types: TokenType[]): boolean {
+    return types.some(t => {
+      if (this.check(t)) {
+        this.advance();
+
+        return true;
+      }
+
+      return false;
+    });
+  }
+
+  private check(type: TokenType): boolean {
+    if (this.isAtEnd()) { return false; }
+
+    return this.peek().type === type;
+  }
+
+  private advance() {
+    if (!this.isAtEnd()) {
+      this.current++;
+    }
+
+    return this.previous();
+  }
+
+  private isAtEnd(): boolean {
+    return this.peek().type === 'EOF';
+  }
+
+  private peek(): Token {
+    return this.tokens[this.current];
+  }
+
+  private previous(): Token {
+    return this.tokens[this.current - 1];
+  }
+
+  private consume(type: TokenType, message: string) {
+    if (this.check(type)) { return this.advance(); }
+
+    throw this.error(this.peek(), message);
+  }
+
+  private error(token: Token, message: string): ParseError {
+    this.errorInternal(token, message);
+
+    return new ParseError();
+  }
+
+  private synchronize() {
+    this.advance();
+
+    while (!this.isAtEnd()) {
+      if (this.previous().type === 'SEMICOLON') { return; }
+
+      switch (this.peek().type) {
+        case 'CLASS':
+        case 'FUN':
+        case 'VAR':
+        case 'FOR':
+        case 'IF':
+        case 'WHILE':
+        case 'PRINT':
+        case 'RETURN':
+          return;
+      }
+
+      this.advance();
+    }
+  }
+
+  private expression(): Expr {
+    return this.equality();
+  }
+
+  private equality(): Expr {
+    let expr = this.comparison();
+
+    while (this.match('BANG_EQUAL', 'EQUAL_EQUAL')) {
+      const operator = this.previous();
+      const right = this.comparison();
+
+      expr = {
+        type: 'binary',
+        left: expr,
+        operator,
+        right
+      };
+    }
+
+    return expr;
+  }
+
+  private comparison(): Expr {
+    let expr = this.addition();
+
+    while (this.match(
+      'GREATER',
+      'GREATER_EQUAL',
+      'LESS',
+      'LESS_EQUAL'
+    )) {
+      const operator = this.previous();
+      const right = this.addition();
+
+      expr = {
+        type: 'binary',
+        left: expr,
+        operator,
+        right
+      };
+    }
+
+    return expr;
+  }
+
+  private addition(): Expr {
+    let expr = this.multiplication();
+
+    while (this.match('MINUS', 'PLUS')) {
+      const operator = this.previous();
+      const right = this.multiplication();
+
+      expr = {
+        type: 'binary',
+        left: expr,
+        operator,
+        right
+      };
+    }
+
+    return expr;
+  }
+
+  private multiplication(): Expr {
+    let expr = this.unary();
+
+    while (this.match('SLASH', 'STAR')) {
+      const operator = this.previous();
+      const right = this.unary();
+
+      expr = {
+        type: 'binary',
+        left: expr,
+        operator,
+        right
+      };
+    }
+
+    return expr;
+  }
+
+  private unary(): Expr {
+    if (this.match('BANG', 'MINUS')) {
+      const operator = this.previous();
+      const right = this.unary();
+
+      return {
+        type: 'unary',
+        operator,
+        right
+      };
+    }
+
+    return this.primary();
+  }
+
+  private primary(): Expr {
+    if (this.match('FALSE')) {
+      return { type: 'literal', value: false, token: this.previous() };
+    }
+    if (this.match('TRUE')) {
+      return { type: 'literal', value: true, token: this.previous() };
+    }
+    if (this.match('NIL')) {
+      return { type: 'literal', value: null, token: this.previous() };
+    }
+
+    if (this.match('NUMBER', 'STRING')) {
+      return {
+        type: 'literal',
+        value: this.previous().literal,
+        token: this.previous()
+      };
+    }
+
+    if (this.match('LEFT_PAREN')) {
+      const expr = this.expression();
+
+      this.consume('RIGHT_PAREN', `Expect ')' after expression.`);
+
+      return {
+        type: 'grouping',
+        expression: expr,
+        token: this.previous()
+      };
+    }
+
+    throw this.error(this.peek(), "Expect expression.");
+  }
+}
 
 export function parse(
   tokens: Token[],
   error: (t: Token, m: string) => void
 ): Expr | null {
-  try {
-
-    return matchExpression(
-      tokens.filter(t =>
-        t.type !== 'WHITESPACE' && t.type !== 'COMMENT' && t.type !== 'EOF'
-      )
-      , error
-    )[0];
-  } catch {
-    return null;
-  }
-}
-
-
-function matchExpression(
-  tokens: Token[],
-  error: (t: Token, m: string) => void
-): [Expr, Token[]] {
-  return matchEquality(tokens, error);
-}
-
-
-function matchEquality(
-  tokens: Token[],
-  error: (t: Token, m: string) => void
-): [Expr, Token[]] {
-  return matchBinary(
-    matchComparison,
-    ['BANG_EQUAL', 'EQUAL_EQUAL'],
-    tokens,
-    error
-  );
-}
-
-
-function matchComparison(
-  tokens: Token[],
-  error: (t: Token, m: string) => void
-): [Expr, Token[]] {
-  return matchBinary(
-    matchAddition,
-    ['LESS', 'LESS_EQUAL', 'GREATER', 'GREATER_EQUAL'],
-    tokens,
-    error
-  );
-}
-
-
-function matchAddition(
-  tokens: Token[],
-  error: (t: Token, m: string) => void
-): [Expr, Token[]] {
-  return matchBinary(
-    matchMultiplication,
-    ['MINUS', 'PLUS'],
-    tokens,
-    error
-  );
-}
-
-
-function matchMultiplication(
-  tokens: Token[],
-  error: (t: Token, m: string) => void
-): [Expr, Token[]] {
-  return matchBinary(
-    matchUnary,
-    ['SLASH', 'STAR'],
-    tokens,
-    error
-  );
-}
-
-
-function matchUnary(
-  tokens: Token[],
-  error: (t: Token, m: string) => void
-): [Expr, Token[]] {
-  let [token, ...rest] = tokens;
-  if (token.type === 'BANG' || token.type === 'MINUS') {
-    let right: Expr;
-    [right, rest] = matchUnary(rest, error);
-    return [
-      {
-        type: 'unary',
-        operator: token,
-        right: right
-      },
-      rest
-    ];
-  }
-
-  return matchPrimary(tokens, error);
-}
-
-
-function matchPrimary(
-  tokens: Token[],
-  error: (t: Token, m: string) => void
-): [Expr, Token[]] {
-  let [token, ...rest] = tokens;
-
-  switch (token.type) {
-    case 'FALSE': return [
-      {
-        type: 'literal',
-        value: false,
-        token
-      },
-      rest
-    ];
-    case 'TRUE': return [
-      {
-        type: 'literal',
-        value: true,
-        token
-      },
-      rest
-    ];
-    case 'NIL': return [
-      {
-        type: 'literal',
-        value: null,
-        token
-      },
-      rest
-    ];
-
-    case 'NUMBER':
-    case 'STRING': return [
-      {
-        type: 'literal',
-        value: token.literal,
-        token
-      },
-      rest
-    ];
-
-    case 'LEFT_PAREN':
-      let expr: Expr, next: Token;
-      [expr, rest] = matchExpression(rest, error);
-      
-      [next, ...rest] = rest;
-      if (next.type !== 'RIGHT_PAREN') {
-        throw parseError(error, next, "Expected closing parenthesis.");
-      }
-
-      return [
-        {
-          type: 'grouping',
-          expression: expr,
-          token
-        },
-        rest
-      ];
-
-    default:
-      error(token, "Unknown token.");
-      return matchPrimary(rest, error);
-  }
-}
-
-
-function synchronize(tokens: Token[]) {
-  let next: Token, rest: Token[];
-
-  do {
-    [next, ...rest] = tokens;
-
-    if (next.type === 'SEMICOLON') {
-      return rest;
-    }
-
-    switch (rest[0]?.type) {
-      case 'VAR':
-      case 'FUN':
-      case 'CLASS':
-      case 'FOR':
-      case 'IF':
-      case 'PRINT':
-      case 'RETURN':
-      case 'WHILE':
-        return rest;
-    }
-  } while (next);
-}
-
-
-function parseError(
-  error: (t: Token, m: string) => void,
-  token: Token,
-  message: string
-): Error {
-  error(token, message);
-
-  return new Error(message);
-}
-
-
-function matchBinary(
-  child:
-    (tokens: Token[], error: (t: Token, m: string) => void) => [Expr, Token[]],
-  symbols: TokenValue[],
-  tokens: Token[],
-  error: (t: Token, m: string) => void
-): [Expr, Token[]] {
-  let [expr, rest] = child(tokens, error);
-
-  let token: Token;
-  [token, ...rest] = rest;
-  while (token && symbols.indexOf(token.type) > -1) {
-    let right: Expr;
-    [right, rest] = child(rest, error);
-    expr = {
-      type: 'binary',
-      operator: token,
-      left: expr,
-      right: right
-    };
-    [token, ...rest] = rest;
-  }
-
-  return [expr, [token, ...rest]];
-}
-
-
-
-
-// Formatting
-
-export function prettyPrint(expression: Expr): string {
-  return printExpression(expression);
-}
-
-
-function printExpression(expression: Expr): string {
-  switch (expression.type) {
-    case 'binary':
-      return parenthesize(
-        expression.operator.lexeme,
-        expression.left,
-        expression.right
-      );
-    case 'unary':
-      return parenthesize(expression.operator.lexeme, expression.right);
-    case 'grouping':
-      return parenthesize('group', expression.expression);
-    case 'literal':
-      return expression.value == null
-        ? 'nil'
-        : expression.value + '';
-  }
-}
-
-
-function parenthesize(name: string, ...expressions: Expr[]): string {
-  if (expressions && expressions.length) {
-    return `(${name} ${expressions.map(printExpression).join(' ')})`;
-  } else {
-    return `(${name});`
-  }
+  return new Parser(tokens.filter(t => {
+    return t.type !== 'WHITESPACE' && t.type !== 'COMMENT'
+  }), error).parse();
 }

@@ -16,7 +16,7 @@ const keywords = {
     var: 'VAR',
     while: 'WHILE',
 };
-export class Scanner {
+class Scanner {
     constructor(source, error) {
         this.tokens = [];
         this.start = 0;

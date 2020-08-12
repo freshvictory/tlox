@@ -1,4 +1,4 @@
-export type TokenValue =
+export type TokenType =
 
 
   // Single-character tokens
@@ -37,14 +37,14 @@ export type TokenValue =
 
 
 export type Token = {
-  type: TokenValue;
+  type: TokenType;
   lexeme: string;
   start: number;
   literal?: unknown;
   line: number;
 };
 
-const keywords: { [k: string]: TokenValue } = {
+const keywords: { [k: string]: TokenType } = {
   and: 'AND',
   class: 'CLASS',
   else: 'ELSE',
@@ -64,7 +64,7 @@ const keywords: { [k: string]: TokenValue } = {
 };
 
 
-export class Scanner {
+class Scanner {
   private readonly source: string;
   private tokens: Token[] = [];
 
@@ -225,7 +225,7 @@ export class Scanner {
     this.addToken(type);
   }
 
-  private addToken(type: TokenValue, literal?: string | number) {
+  private addToken(type: TokenType, literal?: string | number) {
     const lexeme = this.source.substring(this.start, this.current);
 
     this.tokens.push({

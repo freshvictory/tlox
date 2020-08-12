@@ -1,163 +1,182 @@
-export function parse(tokens, error) {
-    try {
-        return matchExpression(tokens.filter(t => t.type !== 'WHITESPACE' && t.type !== 'COMMENT' && t.type !== 'EOF'), error)[0];
+class ParseError extends Error {
+}
+;
+class Parser {
+    constructor(tokens, error) {
+        this.current = 0;
+        this.tokens = tokens;
+        this.errorInternal = error;
     }
-    catch (_a) {
-        return null;
+    parse() {
+        try {
+            return this.expression();
+        }
+        catch (e) {
+            return null;
+        }
     }
-}
-function matchExpression(tokens, error) {
-    return matchEquality(tokens, error);
-}
-function matchEquality(tokens, error) {
-    return matchBinary(matchComparison, ['BANG_EQUAL', 'EQUAL_EQUAL'], tokens, error);
-}
-function matchComparison(tokens, error) {
-    return matchBinary(matchAddition, ['LESS', 'LESS_EQUAL', 'GREATER', 'GREATER_EQUAL'], tokens, error);
-}
-function matchAddition(tokens, error) {
-    return matchBinary(matchMultiplication, ['MINUS', 'PLUS'], tokens, error);
-}
-function matchMultiplication(tokens, error) {
-    return matchBinary(matchUnary, ['SLASH', 'STAR'], tokens, error);
-}
-function matchUnary(tokens, error) {
-    let [token, ...rest] = tokens;
-    if (token.type === 'BANG' || token.type === 'MINUS') {
-        let right;
-        [right, rest] = matchUnary(rest, error);
-        return [
-            {
-                type: 'unary',
-                operator: token,
-                right: right
-            },
-            rest
-        ];
-    }
-    return matchPrimary(tokens, error);
-}
-function matchPrimary(tokens, error) {
-    let [token, ...rest] = tokens;
-    switch (token.type) {
-        case 'FALSE': return [
-            {
-                type: 'literal',
-                value: false,
-                token
-            },
-            rest
-        ];
-        case 'TRUE': return [
-            {
-                type: 'literal',
-                value: true,
-                token
-            },
-            rest
-        ];
-        case 'NIL': return [
-            {
-                type: 'literal',
-                value: null,
-                token
-            },
-            rest
-        ];
-        case 'NUMBER':
-        case 'STRING': return [
-            {
-                type: 'literal',
-                value: token.literal,
-                token
-            },
-            rest
-        ];
-        case 'LEFT_PAREN':
-            let expr, next;
-            [expr, rest] = matchExpression(rest, error);
-            [next, ...rest] = rest;
-            if (next.type !== 'RIGHT_PAREN') {
-                throw parseError(error, next, "Expected closing parenthesis.");
+    match(...types) {
+        return types.some(t => {
+            if (this.check(t)) {
+                this.advance();
+                return true;
             }
-            return [
-                {
-                    type: 'grouping',
-                    expression: expr,
-                    token
-                },
-                rest
-            ];
-        default:
-            error(token, "Unknown token.");
-            return matchPrimary(rest, error);
+            return false;
+        });
     }
-}
-function synchronize(tokens) {
-    var _a;
-    let next, rest;
-    do {
-        [next, ...rest] = tokens;
-        if (next.type === 'SEMICOLON') {
-            return rest;
+    check(type) {
+        if (this.isAtEnd()) {
+            return false;
         }
-        switch ((_a = rest[0]) === null || _a === void 0 ? void 0 : _a.type) {
-            case 'VAR':
-            case 'FUN':
-            case 'CLASS':
-            case 'FOR':
-            case 'IF':
-            case 'PRINT':
-            case 'RETURN':
-            case 'WHILE':
-                return rest;
+        return this.peek().type === type;
+    }
+    advance() {
+        if (!this.isAtEnd()) {
+            this.current++;
         }
-    } while (next);
-}
-function parseError(error, token, message) {
-    error(token, message);
-    return new Error(message);
-}
-function matchBinary(child, symbols, tokens, error) {
-    let [expr, rest] = child(tokens, error);
-    let token;
-    [token, ...rest] = rest;
-    while (token && symbols.indexOf(token.type) > -1) {
-        let right;
-        [right, rest] = child(rest, error);
-        expr = {
-            type: 'binary',
-            operator: token,
-            left: expr,
-            right: right
-        };
-        [token, ...rest] = rest;
+        return this.previous();
     }
-    return [expr, [token, ...rest]];
-}
-// Formatting
-export function prettyPrint(expression) {
-    return printExpression(expression);
-}
-function printExpression(expression) {
-    switch (expression.type) {
-        case 'binary':
-            return parenthesize(expression.operator.lexeme, expression.left, expression.right);
-        case 'unary':
-            return parenthesize(expression.operator.lexeme, expression.right);
-        case 'grouping':
-            return parenthesize('group', expression.expression);
-        case 'literal':
-            return expression.value == null
-                ? 'nil'
-                : expression.value + '';
+    isAtEnd() {
+        return this.peek().type === 'EOF';
+    }
+    peek() {
+        return this.tokens[this.current];
+    }
+    previous() {
+        return this.tokens[this.current - 1];
+    }
+    consume(type, message) {
+        if (this.check(type)) {
+            return this.advance();
+        }
+        throw this.error(this.peek(), message);
+    }
+    error(token, message) {
+        this.errorInternal(token, message);
+        return new ParseError();
+    }
+    synchronize() {
+        this.advance();
+        while (!this.isAtEnd()) {
+            if (this.previous().type === 'SEMICOLON') {
+                return;
+            }
+            switch (this.peek().type) {
+                case 'CLASS':
+                case 'FUN':
+                case 'VAR':
+                case 'FOR':
+                case 'IF':
+                case 'WHILE':
+                case 'PRINT':
+                case 'RETURN':
+                    return;
+            }
+            this.advance();
+        }
+    }
+    expression() {
+        return this.equality();
+    }
+    equality() {
+        let expr = this.comparison();
+        while (this.match('BANG_EQUAL', 'EQUAL_EQUAL')) {
+            const operator = this.previous();
+            const right = this.comparison();
+            expr = {
+                type: 'binary',
+                left: expr,
+                operator,
+                right
+            };
+        }
+        return expr;
+    }
+    comparison() {
+        let expr = this.addition();
+        while (this.match('GREATER', 'GREATER_EQUAL', 'LESS', 'LESS_EQUAL')) {
+            const operator = this.previous();
+            const right = this.addition();
+            expr = {
+                type: 'binary',
+                left: expr,
+                operator,
+                right
+            };
+        }
+        return expr;
+    }
+    addition() {
+        let expr = this.multiplication();
+        while (this.match('MINUS', 'PLUS')) {
+            const operator = this.previous();
+            const right = this.multiplication();
+            expr = {
+                type: 'binary',
+                left: expr,
+                operator,
+                right
+            };
+        }
+        return expr;
+    }
+    multiplication() {
+        let expr = this.unary();
+        while (this.match('SLASH', 'STAR')) {
+            const operator = this.previous();
+            const right = this.unary();
+            expr = {
+                type: 'binary',
+                left: expr,
+                operator,
+                right
+            };
+        }
+        return expr;
+    }
+    unary() {
+        if (this.match('BANG', 'MINUS')) {
+            const operator = this.previous();
+            const right = this.unary();
+            return {
+                type: 'unary',
+                operator,
+                right
+            };
+        }
+        return this.primary();
+    }
+    primary() {
+        if (this.match('FALSE')) {
+            return { type: 'literal', value: false, token: this.previous() };
+        }
+        if (this.match('TRUE')) {
+            return { type: 'literal', value: true, token: this.previous() };
+        }
+        if (this.match('NIL')) {
+            return { type: 'literal', value: null, token: this.previous() };
+        }
+        if (this.match('NUMBER', 'STRING')) {
+            return {
+                type: 'literal',
+                value: this.previous().literal,
+                token: this.previous()
+            };
+        }
+        if (this.match('LEFT_PAREN')) {
+            const expr = this.expression();
+            this.consume('RIGHT_PAREN', `Expect ')' after expression.`);
+            return {
+                type: 'grouping',
+                expression: expr,
+                token: this.previous()
+            };
+        }
+        throw this.error(this.peek(), "Expect expression.");
     }
 }
-function parenthesize(name, ...expressions) {
-    if (expressions && expressions.length) {
-        return `(${name} ${expressions.map(printExpression).join(' ')})`;
-    }
-    else {
-        return `(${name});`;
-    }
+export function parse(tokens, error) {
+    return new Parser(tokens.filter(t => {
+        return t.type !== 'WHITESPACE' && t.type !== 'COMMENT';
+    }), error).parse();
 }
