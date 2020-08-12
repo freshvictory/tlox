@@ -1,281 +1,191 @@
-export function scanTokens(source, error) {
-    return lex(source.split(''), error, 1, 0);
-}
-function lex(source, error, line, start) {
-    const [s, ...next] = source;
-    switch (s) {
-        case undefined:
-            return [{ type: 'EOF', lexeme: '', line: line, start }];
-        case ' ':
-        case '\r':
-        case '\t': return [
-            { type: 'WHITESPACE', lexeme: s, line, start },
-            ...lex(next, error, line, start + 1)
-        ];
-        case '\n': return [
-            { type: 'WHITESPACE', lexeme: s, line, start },
-            ...lex(next, error, line + 1, start + 1)
-        ];
-        case '(':
-            return [
-                { type: 'LEFT_PAREN', lexeme: s, line, start },
-                ...lex(next, error, line, start + 1)
-            ];
-        case ')':
-            return [
-                { type: 'RIGHT_PAREN', lexeme: s, line, start },
-                ...lex(next, error, line, start + 1)
-            ];
-        case '{':
-            return [
-                { type: 'LEFT_BRACE', lexeme: s, line, start },
-                ...lex(next, error, line, start + 1)
-            ];
-        case '}':
-            return [
-                { type: 'RIGHT_BRACE', lexeme: s, line, start },
-                ...lex(next, error, line, start + 1)
-            ];
-        case ',':
-            return [
-                { type: 'COMMA', lexeme: s, line, start },
-                ...lex(next, error, line, start + 1)
-            ];
-        case '.':
-            return [
-                { type: 'DOT', lexeme: s, line, start },
-                ...lex(next, error, line, start + 1)
-            ];
-        case '-':
-            return [
-                { type: 'MINUS', lexeme: s, line, start },
-                ...lex(next, error, line, start + 1)
-            ];
-        case '+':
-            return [
-                { type: 'PLUS', lexeme: s, line, start },
-                ...lex(next, error, line, start + 1)
-            ];
-        case ';':
-            return [
-                { type: 'SEMICOLON', lexeme: s, line, start },
-                ...lex(next, error, line, start + 1)
-            ];
-        case '*':
-            return [
-                { type: 'STAR', lexeme: s, line, start },
-                ...lex(next, error, line, start + 1)
-            ];
-        case '!': {
-            const [peek, ...rest] = next;
-            switch (peek) {
-                case '=':
-                    return [
-                        { type: 'BANG_EQUAL', lexeme: s + peek, line, start },
-                        ...lex(rest, error, line, start + s.length)
-                    ];
-                default:
-                    return [
-                        { type: 'BANG', lexeme: s, line, start },
-                        ...lex(next, error, line, start + 1)
-                    ];
-            }
-        }
-        case '=': {
-            const [peek, ...rest] = next;
-            switch (peek) {
-                case '=':
-                    return [
-                        { type: 'EQUAL_EQUAL', lexeme: s + peek, line, start },
-                        ...lex(rest, error, line, start + s.length)
-                    ];
-                default:
-                    return [
-                        { type: 'EQUAL', lexeme: s, line, start },
-                        ...lex(next, error, line, start + 1)
-                    ];
-            }
-        }
-        case '<': {
-            const [peek, ...rest] = next;
-            switch (peek) {
-                case '=':
-                    return [
-                        { type: 'LESS_EQUAL', lexeme: s + peek, line, start },
-                        ...lex(rest, error, line, start + s.length)
-                    ];
-                default:
-                    return [
-                        { type: 'LESS', lexeme: s, line, start },
-                        ...lex(next, error, line, start + 1)
-                    ];
-            }
-        }
-        case '>': {
-            const [peek, ...rest] = next;
-            switch (peek) {
-                case '=':
-                    return [
-                        { type: 'GREATER_EQUAL', lexeme: s + peek, line, start },
-                        ...lex(rest, error, line, start + s.length)
-                    ];
-                default:
-                    return [
-                        { type: 'GREATER', lexeme: s, line, start },
-                        ...lex(next, error, line, start + 1)
-                    ];
-            }
-        }
-        case '/': {
-            const [peek, ...rest] = next;
-            switch (peek) {
-                case '/':
-                    let commentChar;
-                    let comment = '//';
-                    let remainder = rest;
-                    let count = 1;
-                    do {
-                        [commentChar, ...remainder] = remainder;
-                        comment += (commentChar || '');
-                        count++;
-                    } while (commentChar && commentChar !== '\n');
-                    if (commentChar) {
-                        comment = comment.slice(0, -1);
-                        remainder = [commentChar, ...remainder];
-                    }
-                    return [
-                        { type: 'COMMENT', lexeme: comment, line, start },
-                        ...lex(remainder, error, line, start + count)
-                    ];
-                default:
-                    return [
-                        { type: 'SLASH', lexeme: s, line, start },
-                        ...lex(next, error, line, start + 1)
-                    ];
-            }
-        }
-        case '"': {
-            let nextChar;
-            let rest = next;
-            let str = '';
-            let lineCount = line;
-            do {
-                [nextChar, ...rest] = rest;
-                str += nextChar;
-                if (nextChar === '\n') {
-                    lineCount++;
-                }
-            } while (nextChar && nextChar !== '"');
-            if (!nextChar) {
-                error(lineCount, `Unterminated string.`);
-                return [];
-            }
-            str = str.slice(0, -1);
-            return [
-                { type: 'STRING', lexeme: s + str + nextChar, line, literal: str, start },
-                ...lex(rest, error, lineCount, start + str.length + 2)
-            ];
-        }
-        default:
-            if (/[0-9]/.test(s)) {
-                let nextDigit = s;
-                let rest = next;
-                let str = '';
-                do {
-                    str += nextDigit;
-                    [nextDigit, ...rest] = rest;
-                } while (nextDigit
-                    && (/[0-9]/.test(nextDigit)
-                        || (nextDigit === '.' && /[0-9]/.test(rest[0]))));
-                rest = [nextDigit, ...rest];
-                return [
-                    { type: 'NUMBER', lexeme: str, line, literal: parseFloat(str), start },
-                    ...lex(rest, error, line, start + str.length)
-                ];
-            }
-            else if (/[a-zA-Z]/.test(s)) {
-                let nextChar = s;
-                let rest = next;
-                let str = '';
-                do {
-                    str += nextChar;
-                    [nextChar, ...rest] = rest;
-                } while (nextChar && /[0-9a-zA-Z]/.test(nextChar));
-                rest = [nextChar, ...rest];
-                switch (str) {
-                    case 'and': return [
-                        { type: 'AND', lexeme: str, line, start },
-                        ...lex(rest, error, line, start + str.length)
-                    ];
-                    case 'class': return [
-                        { type: 'CLASS', lexeme: str, line, start },
-                        ...lex(rest, error, line, start + str.length)
-                    ];
-                    case 'else': return [
-                        { type: 'ELSE', lexeme: str, line, start },
-                        ...lex(rest, error, line, start + str.length)
-                    ];
-                    case 'false': return [
-                        { type: 'FALSE', lexeme: str, line, start },
-                        ...lex(rest, error, line, start + str.length)
-                    ];
-                    case 'for': return [
-                        { type: 'FOR', lexeme: str, line, start },
-                        ...lex(rest, error, line, start + str.length)
-                    ];
-                    case 'fun': return [
-                        { type: 'FUN', lexeme: str, line, start },
-                        ...lex(rest, error, line, start + str.length)
-                    ];
-                    case 'if': return [
-                        { type: 'IF', lexeme: str, line, start },
-                        ...lex(rest, error, line, start + str.length)
-                    ];
-                    case 'nil': return [
-                        { type: 'NIL', lexeme: str, line, start },
-                        ...lex(rest, error, line, start + str.length)
-                    ];
-                    case 'or': return [
-                        { type: 'OR', lexeme: str, line, start },
-                        ...lex(rest, error, line, start + str.length)
-                    ];
-                    case 'print': return [
-                        { type: 'PRINT', lexeme: str, line, start },
-                        ...lex(rest, error, line, start + str.length)
-                    ];
-                    case 'return': return [
-                        { type: 'RETURN', lexeme: str, line, start },
-                        ...lex(rest, error, line, start + str.length)
-                    ];
-                    case 'super': return [
-                        { type: 'SUPER', lexeme: str, line, start },
-                        ...lex(rest, error, line, start + str.length)
-                    ];
-                    case 'this': return [
-                        { type: 'THIS', lexeme: str, line, start },
-                        ...lex(rest, error, line, start + str.length)
-                    ];
-                    case 'true': return [
-                        { type: 'TRUE', lexeme: str, line, start },
-                        ...lex(rest, error, line, start + str.length)
-                    ];
-                    case 'var': return [
-                        { type: 'VAR', lexeme: str, line, start },
-                        ...lex(rest, error, line, start + str.length)
-                    ];
-                    case 'while': return [
-                        { type: 'WHILE', lexeme: str, line, start },
-                        ...lex(rest, error, line, start + str.length)
-                    ];
-                    default: return [
-                        { type: 'IDENTIFIER', lexeme: str, line, start },
-                        ...lex(rest, error, line, start + str.length)
-                    ];
-                }
-            }
-            else {
-                error(line, `Unexpected token ${s} starting at ${start}`);
-                return lex(next, error, line, start + 1);
-            }
+const keywords = {
+    and: 'AND',
+    class: 'CLASS',
+    else: 'ELSE',
+    false: 'FALSE',
+    for: 'FOR',
+    fun: 'FUN',
+    if: 'IF',
+    nil: 'NIL',
+    or: 'OR',
+    print: 'PRINT',
+    return: 'RETURN',
+    super: 'SUPER',
+    this: 'THIS',
+    true: 'TRUE',
+    var: 'VAR',
+    while: 'WHILE',
+};
+export class Scanner {
+    constructor(source, error) {
+        this.tokens = [];
+        this.start = 0;
+        this.current = 0;
+        this.line = 1;
+        this.source = source;
+        this.error = (m) => error(this.line, m);
     }
+    scanTokens() {
+        while (!this.isAtEnd()) {
+            this.start = this.current;
+            this.scanToken();
+        }
+        this.tokens.push({
+            type: 'EOF',
+            lexeme: "",
+            line: this.line,
+            start: this.start
+        });
+        return this.tokens;
+    }
+    isAtEnd() {
+        return this.current >= this.source.length;
+    }
+    scanToken() {
+        const c = this.advance();
+        switch (c) {
+            case '(':
+                this.addToken('LEFT_PAREN');
+                break;
+            case ')':
+                this.addToken('RIGHT_PAREN');
+                break;
+            case '{':
+                this.addToken('LEFT_BRACE');
+                break;
+            case '}':
+                this.addToken('RIGHT_BRACE');
+                break;
+            case ',':
+                this.addToken('COMMA');
+                break;
+            case '.':
+                this.addToken('DOT');
+                break;
+            case '-':
+                this.addToken('MINUS');
+                break;
+            case '+':
+                this.addToken('PLUS');
+                break;
+            case ';':
+                this.addToken('SEMICOLON');
+                break;
+            case '*':
+                this.addToken('STAR');
+                break;
+            case '!':
+                this.addToken(this.match('=') ? 'BANG_EQUAL' : 'BANG');
+                break;
+            case '=':
+                this.addToken(this.match('=') ? 'EQUAL_EQUAL' : 'EQUAL');
+                break;
+            case '<':
+                this.addToken(this.match('=') ? 'LESS_EQUAL' : 'LESS');
+                break;
+            case '>':
+                this.addToken(this.match('=') ? 'GREATER_EQUAL' : 'GREATER');
+                break;
+            case '/':
+                if (this.match('/')) {
+                    while (this.peek() !== '\n' && !this.isAtEnd()) {
+                        this.advance();
+                    }
+                    this.addToken('COMMENT');
+                }
+                else {
+                    this.addToken('SLASH');
+                }
+                break;
+            case ' ':
+            case '\r':
+            case '\t':
+                this.addToken('WHITESPACE');
+                break;
+            case '\n':
+                this.addToken('WHITESPACE');
+                this.line++;
+                break;
+            case '"':
+                while (this.peek() !== '"' && !this.isAtEnd()) {
+                    if (this.peek() === '\n') {
+                        this.line++;
+                    }
+                    this.advance();
+                }
+                if (this.isAtEnd()) {
+                    this.error('Unterminated string.');
+                }
+                this.advance();
+                const value = this.source.substring(this.start + 1, this.current - 1);
+                this.addToken('STRING', value);
+                break;
+            default:
+                if (/[0-9]/.test(c)) {
+                    this.number();
+                }
+                else if (/[a-zA-Z_]/.test(c)) {
+                    this.identifier();
+                }
+                else {
+                    this.error(`Unexpected character: ${c}`);
+                }
+                break;
+        }
+    }
+    advance() {
+        this.current++;
+        return this.source[this.current - 1];
+    }
+    match(expected) {
+        if (this.isAtEnd()) {
+            return false;
+        }
+        if (this.source[this.current] !== expected) {
+            return false;
+        }
+        this.current++;
+        return true;
+    }
+    peek(ahead = 1) {
+        if (this.current + (ahead - 1) >= this.source.length) {
+            return '\0';
+        }
+        return this.isAtEnd()
+            ? '\0'
+            : this.source[this.current + (ahead - 1)];
+    }
+    number() {
+        while (/[0-9]/.test(this.peek())) {
+            this.advance();
+        }
+        if (this.peek() === '.' && /[0-9]/.test(this.peek(2))) {
+            this.advance();
+        }
+        while (/[0-9]/.test(this.peek())) {
+            this.advance();
+        }
+        this.addToken('NUMBER', parseFloat(this.source.substring(this.start, this.current)));
+    }
+    identifier() {
+        while (/[0-9a-zA-Z_]/.test(this.peek())) {
+            this.advance();
+        }
+        const text = this.source.substring(this.start, this.current);
+        const type = keywords[text] || 'IDENTIFIER';
+        this.addToken(type);
+    }
+    addToken(type, literal) {
+        const lexeme = this.source.substring(this.start, this.current);
+        this.tokens.push({
+            type,
+            lexeme,
+            literal,
+            line: this.line,
+            start: this.start
+        });
+    }
+}
+export function scanTokens(source, error) {
+    return new Scanner(source, error).scanTokens();
 }

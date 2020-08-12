@@ -194,7 +194,7 @@ function matchPrimary(
 }
 
 
-function synchronize(tokens: Token[]): Token[] {
+function synchronize(tokens: Token[]) {
   let next: Token, rest: Token[];
 
   do {
