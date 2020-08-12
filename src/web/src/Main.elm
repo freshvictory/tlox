@@ -10,7 +10,6 @@ import String
 import List
 import Theme exposing (Theme, light, dark)
 import Css.Media
-import Css.Global
 
 
 
@@ -268,7 +267,7 @@ viewInput =
         , css
             [ Css.border Css.zero
             , Css.padding2 (rem 0.5) Css.zero
-            , Css.color Css.inherit
+            , Css.color Css.transparent
             , Css.fontSize Css.inherit
             , Css.width (pct 100)
             , Css.boxSizing Css.borderBox
@@ -605,7 +604,7 @@ viewExpression expr =
             Grouping g ->
                 viewExpression g.expression
 
-            Literal l ->
+            Literal _ ->
                 E.text ""
         ]
 
