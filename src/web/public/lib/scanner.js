@@ -1,3 +1,4 @@
+"use strict";
 const keywords = {
     and: 'AND',
     class: 'CLASS',
@@ -186,6 +187,6 @@ class Scanner {
         });
     }
 }
-export function scanTokens(source, error) {
+function scanTokens(source, error) {
     return new Scanner(source, error).scanTokens();
 }

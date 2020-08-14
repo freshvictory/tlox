@@ -1,17 +1,31 @@
 import './main.css';
 import './code.css';
 import { Elm } from './Main.elm';
-import { scanTokens } from './lib/scanner';
-import { parse } from './lib/parser';
 
 const app = Elm.Main.init({
   node: document.getElementById('root')
 });
 
-app.ports.run.subscribe(function (m) {
-  const error = (line, message) => app.ports.error.send({ line, message });
-  const scanner = scanTokens(m, error);
-  app.ports.scanResult.send(scanner);
-  const parser = parse(scanner);
-  app.ports.parseResult.send(parser);
+const scannerWorker = new Worker('scanner-worker.js');
+scannerWorker.onmessage = ({ data }) => {
+  const [tokens, errors] = data;
+  errors.forEach(e => app.ports.scanError.send(e));
+  app.ports.scanResult.send(tokens);
+};
+
+app.ports.scan.subscribe(function (m) {
+  app.ports.scanError.send(null);
+  scannerWorker.postMessage(m);
+});
+
+const parserWorker = new Worker('parser-worker.js');
+parserWorker.onmessage = ({ data }) => {
+  const [expr, errors] = data;
+  errors.forEach(e => app.ports.parseError.send(e));
+  app.ports.parseResult.send(expr);
+};
+
+app.ports.parse.subscribe(function (t) {
+  app.ports.parseError.send(null);
+  parserWorker.postMessage(t);
 });

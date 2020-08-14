@@ -175,7 +175,7 @@ class Parser {
         throw this.error(this.peek(), "Expect expression.");
     }
 }
-export function parse(tokens, error) {
+function parse(tokens, error) {
     return new Parser(tokens.filter(t => {
         return t.type !== 'WHITESPACE' && t.type !== 'COMMENT';
     }), error).parse();

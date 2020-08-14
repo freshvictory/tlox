@@ -5,6 +5,7 @@ import Css exposing (Style, hex, pct, px, rem)
 import Html.Styled as E exposing (Html, toUnstyled)
 import Html.Styled.Attributes exposing (css)
 import Html.Styled.Events exposing (onInput)
+import Json.Encode
 import Json.Decode exposing (Decoder, field)
 import String
 import List
@@ -16,15 +17,19 @@ import Css.Media
 ---- PORTS ----
 
 
-port run : String -> Cmd msg
-
+port scan : String -> Cmd msg
 
 port scanResult : (Json.Decode.Value -> msg) -> Sub msg
 
+port scanError : (Maybe ScanError -> msg) -> Sub msg
+
+port parse : Json.Decode.Value -> Cmd msg
+
 port parseResult : (Json.Decode.Value -> msg) -> Sub msg
 
+port parseError : (Maybe Json.Decode.Value -> msg) -> Sub msg
 
-port error : (Maybe ParseError -> msg) -> Sub msg
+
 
 
 
@@ -40,7 +45,8 @@ main =
         , subscriptions = \_ -> Sub.batch
             [ scanResult ScanResult
             , parseResult ParseResult
-            , error Error
+            , scanError ReportScanError
+            , parseError ReportParseError
             ]
         }
 
@@ -52,25 +58,20 @@ main =
 type alias Model =
     { input : String
     , scanResult : List Token
+    , scanErrors : List ScanError
     , parseResult : Maybe Expr
-    , error : List ParseError
-    , tab : Tab
+    , parseErrors : List ParseError
     , hover : Maybe Token
     }
-
-
-type Tab
-    = Scanner
-    | Parser
 
 
 defaultModel : Model
 defaultModel =
     { input = ""
     , scanResult = []
+    , scanErrors = []
     , parseResult = Nothing
-    , error = []
-    , tab = Scanner
+    , parseErrors = []
     , hover = Nothing
     }
 
@@ -88,8 +89,8 @@ type Msg
     = Input String
     | ScanResult Json.Decode.Value
     | ParseResult Json.Decode.Value
-    | Error (Maybe ParseError)
-    | TabChange Tab
+    | ReportScanError (Maybe ScanError)
+    | ReportParseError (Maybe Json.Decode.Value)
     | Hover (Maybe Token)
 
 
@@ -97,15 +98,15 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         Input s ->
-            ( { model | input = s, error = [], scanResult = [] }
-            , run s
+            ( { model | input = s }
+            , scan s
             )
 
         ScanResult v ->
             case Json.Decode.decodeValue (Json.Decode.list decodeToken) v of
                 Ok tokens ->
                     ( { model | scanResult = tokens }
-                    , Cmd.none
+                    , parse (Json.Encode.list encodeToken tokens)
                     )
 
                 Err _ ->
@@ -125,23 +126,34 @@ update msg model =
                     , Cmd.none
                     )
 
-        Error reportedError ->
+        ReportScanError reportedError ->
             case reportedError of
                 Nothing ->
-                    ( { model | error = [] }
+                    ( { model | scanErrors = [] }
                     , Cmd.none
                     )
 
                 Just e ->
-                    ( { model | error = model.error ++ [ e ] }
+                    ( { model | scanErrors = model.scanErrors ++ [ e ] }
                     , Cmd.none
                     )
 
-        TabChange t ->
-            ( { model | tab = t }
-            , Cmd.none
-            )
-
+        ReportParseError reportedError ->
+            case reportedError of
+                Nothing ->
+                    ( { model | parseErrors = [] }
+                    , Cmd.none
+                    )
+                Just e ->
+                    case Json.Decode.decodeValue decodeParseError e of
+                        Ok err ->
+                            ( { model | parseErrors = model.parseErrors ++ [ ] }
+                            , Cmd.none
+                            )
+                        Err _ ->
+                            ( { model | scanErrors = [] }
+                            , Cmd.none
+                            )
 
         Hover t ->
             ( { model | hover = t }
@@ -174,16 +186,15 @@ viewBody model =
     E.main_
         [ css
             [ Css.property "display" "grid"
-            , Css.property "grid-template-columns" "1fr 1fr"
-            , Css.property "grid-template-rows" "auto"
-            , Css.property "column-gap" "2rem"
+            , Css.property "row-gap" "2rem"
+            , Css.property "grid-template-rows" "1fr max-content"
             , Css.maxWidth (px 1200)
             , Css.margin Css.auto
             , Css.padding (rem 0.75)
             ]
         ]
-        [ viewEditor model
-        , viewResults model
+        [ viewResults model
+        , viewEditor model
         , viewError model
         ]
 
@@ -213,7 +224,6 @@ viewEditor model =
         [ css
             [ Css.borderRadius (rem 0.25)
             , Css.position Css.relative
-            , Css.minHeight (rem (1.5 * 25))
             , Css.lineHeight (Css.num 1.5)
             , Css.property "display" "grid"
             , Css.property "grid-template-columns" "minmax(2rem, auto) 1fr"
@@ -223,7 +233,7 @@ viewEditor model =
             ]
         ]
         [ viewLines model
-        , viewInput
+        , viewInput model
         , viewSource model
         ]
 
@@ -256,18 +266,20 @@ viewLines model =
                     ]
                     [ E.pre [] [ E.text (String.fromInt n) ] ]
             )
-            (List.range 1 (max (List.length lines) 25))
+            (List.range 1 (max (List.length lines) 10))
         )
 
 
-viewInput : Html Msg
-viewInput =
+viewInput : Model -> Html Msg
+viewInput model =
     E.textarea
         [ onInput Input
         , css
             [ Css.border Css.zero
             , Css.padding2 (rem 0.5) Css.zero
-            , Css.color Css.transparent
+            , if List.length model.scanErrors == 0
+                then Css.color Css.transparent
+                else Css.color Css.inherit
             , Css.fontSize Css.inherit
             , Css.width (pct 100)
             , Css.boxSizing Css.borderBox
@@ -348,65 +360,12 @@ viewResults model =
     E.section
         [ css
             [ Css.property "display" "grid"
-            , Css.property "row-gap" "0.5rem"
-            , Css.property "grid-auto-rows" "max-content"
+            , Css.property "column-gap" "0.5rem"
+            , Css.property "grid-template-columns" "1fr 1fr"
             ]
         ]
-        [ E.div
-            [ css
-                [ Css.displayFlex
-                , Css.justifyContent Css.center
-                ]
-            ]
-            [ viewTabRadio model "scanner" "Scanner" Scanner
-            , viewTabRadio model "parser" "Parser" Parser
-            ]
-        , case model.tab of
-            Scanner ->
-                viewTokens model
-
-            Parser ->
-                viewParserResults model
-        ]
-
-
-viewTabRadio : Model -> String -> String -> Tab -> Html Msg
-viewTabRadio model id label tab =
-    E.label
-        [ css
-            [ Css.lineHeight (Css.num 1)
-            , Css.padding (rem 0.5)
-            , Css.border3 (px 1) Css.solid (hex light.purple)
-            , Css.display Css.block
-            , Css.firstChild
-                [ Css.borderTopLeftRadius (rem 0.25)
-                , Css.borderBottomLeftRadius (rem 0.25)
-                ]
-            , Css.lastChild
-                [ Css.borderTopRightRadius (rem 0.25)
-                , Css.borderBottomRightRadius (rem 0.25)
-                ]
-            , if model.tab == tab then
-                Css.batch
-                    [ Css.backgroundColor (hex light.purple)
-                    , Css.color (hex "fff")
-                    ]
-
-              else
-                Css.batch []
-            ]
-        , Html.Styled.Attributes.for ("result-" ++ id)
-        ]
-        [ E.input
-            [ Html.Styled.Attributes.type_ "radio"
-            , Html.Styled.Attributes.name "result"
-            , Html.Styled.Attributes.id ("result-" ++ id)
-            , Html.Styled.Events.on "change" (Json.Decode.succeed (TabChange tab))
-            , Html.Styled.Attributes.checked (model.tab == tab)
-            , css [ Css.display Css.none ]
-            ]
-            []
-        , E.text label
+        [ viewTokens model
+        , viewParserResults model
         ]
 
 
@@ -441,6 +400,7 @@ viewTokens model =
                         , Css.property "row-gap" "0.5rem"
                         , Css.property "column-gap" "0.75rem"
                         , Css.property "grid-template-columns" "auto 1fr"
+                        , Css.property "height" "fit-content"
                         , Css.alignItems Css.baseline
                         , Css.padding3 (rem 0.5) (rem 0.75) Css.zero
                         , Css.firstChild
@@ -627,7 +587,7 @@ viewExprChar token s =
 
 viewError : Model -> Html Msg
 viewError model =
-    case model.error of
+    case model.scanErrors of
         [] ->
             E.text ""
 
@@ -653,8 +613,14 @@ viewError model =
 ---- SCANNER ----
 
 
-type alias ParseError =
+type alias ScanError =
     { line : Int
+    , message : String
+    }
+
+
+type alias ParseError =
+    { token : Token
     , message : String
     }
 
@@ -763,6 +729,30 @@ decodeExprType s =
         _ ->
             Json.Decode.fail ("Unknown expr type: " ++ s)
 
+
+decodeParseError : Decoder ParseError
+decodeParseError =
+    Json.Decode.map2 ParseError
+        (field "token" decodeToken)
+        (field "message" Json.Decode.string)
+
+
+encodeToken : Token -> Json.Decode.Value
+encodeToken token =
+    Json.Encode.object
+        [ ( "type", Json.Encode.string token.tokenTypeString )
+        , ( "lexeme", Json.Encode.string token.lexeme )
+        , ( "line", Json.Encode.int token.line )
+        , ( "start", Json.Encode.int token.start )
+        , ( "literal"
+        , case token.literal of
+            Nothing -> Json.Encode.null
+            Just (Str s) -> Json.Encode.string s
+            Just (Num f) -> Json.Encode.float f
+            Just (Boolean b) -> Json.Encode.bool b
+            Just Nil -> Json.Encode.null
+        )
+        ]
 
 
 decodeToken : Decoder Token
