@@ -173,6 +173,8 @@ view model =
                 [ (Css.backgroundColor, .background)
                 , (Css.color, .text)
                 ]
+            , Css.property "display" "grid"
+            , Css.property "grid-template-rows" "auto 1fr"
             ]
         , Html.Styled.Attributes.id "app"
         ]
@@ -188,6 +190,8 @@ viewBody model =
             [ Css.property "display" "grid"
             , Css.property "row-gap" "2rem"
             , Css.property "grid-template-rows" "1fr max-content"
+            , Css.minHeight (Css.pct 100)
+            , Css.width (Css.pct 100)
             , Css.maxWidth (px 1200)
             , Css.margin Css.auto
             , Css.padding (rem 0.75)
@@ -266,7 +270,7 @@ viewLines model =
                     ]
                     [ E.pre [] [ E.text (String.fromInt n) ] ]
             )
-            (List.range 1 (max (List.length lines) 10))
+            (List.range 1 (max (List.length lines) 15))
         )
 
 
@@ -311,6 +315,7 @@ viewSource model =
             , Css.property "grid-column" "2"
             , Css.property "grid-row" "1"
             , Css.pointerEvents Css.none
+            , Css.fontWeight Css.bold
             ]
         ]
         ( List.map
@@ -361,11 +366,10 @@ viewResults model =
         [ css
             [ Css.property "display" "grid"
             , Css.property "column-gap" "0.5rem"
-            , Css.property "grid-template-columns" "1fr 1fr"
+            -- , Css.property "grid-template-columns" "1fr 1fr"
             ]
         ]
-        [ viewTokens model
-        , viewParserResults model
+        [ viewParserResults model
         ]
 
 
