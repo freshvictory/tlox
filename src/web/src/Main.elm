@@ -205,8 +205,8 @@ viewBody model =
     E.main_
         [ css
             [ Css.property "display" "grid"
-            , Css.property "row-gap" "2rem"
-            , Css.property "grid-template-rows" "1fr max-content"
+            , Css.property "grid-gap" "2rem"
+            , Css.property "grid-template-columns" "1fr 1fr"
             , Css.minHeight (Css.pct 100)
             , Css.width (Css.pct 100)
             , Css.maxWidth (px 1200)
@@ -214,9 +214,8 @@ viewBody model =
             , Css.padding (rem 0.75)
             ]
         ]
-        [ viewResults model
-        , viewEditor model
-        , viewError model
+        [ viewCode model
+        , viewResults model
         ]
 
 
@@ -239,6 +238,20 @@ viewHeader =
         ]
 
 
+viewCode : Model -> Html Msg
+viewCode model =
+    E.section
+        [ css
+            [ Css.property "display" "grid"
+            , Css.property "row-gap" "0.25rem"
+            , Css.property "grid-auto-rows" "max-content"
+            ]
+        ]
+        [ viewEditor model
+        , viewError model
+        ]
+
+
 viewEditor : Model -> Html Msg
 viewEditor model =
     E.section
@@ -254,7 +267,7 @@ viewEditor model =
             ]
         ]
         [ viewLines model
-        , viewInput model
+        , viewInput
         , viewSource model
         ]
 
@@ -293,16 +306,14 @@ viewLines model =
         )
 
 
-viewInput : Model -> Html Msg
-viewInput model =
+viewInput : Html Msg
+viewInput =
     E.textarea
         [ onInput Input
         , css
             [ Css.border Css.zero
             , Css.padding2 (rem 0.5) Css.zero
-            , if List.length model.scanErrors == 0
-                then Css.color Css.transparent
-                else Css.color Css.inherit
+            , Css.color Css.transparent
             , Css.fontSize Css.inherit
             , Css.width (pct 100)
             , Css.boxSizing Css.borderBox
@@ -384,7 +395,7 @@ viewResults model =
         [ css
             [ Css.property "display" "grid"
             , Css.property "row-gap" "0.5rem"
-            , Css.property "grid-template-rows" "max-content 1fr"
+            , Css.property "grid-auto-rows" "max-content"
             ]
         ]
         [ E.div
@@ -660,6 +671,8 @@ viewExprChar token s =
             , Css.lineHeight (Css.num 1)
             , Css.padding (rem 0.5)
             ]
+        , Html.Styled.Attributes.class "token"
+        , Html.Styled.Attributes.class token.tokenTypeString
         , Html.Styled.Events.onMouseOver (Hover (Just token))
         , Html.Styled.Events.onMouseLeave (Hover Nothing)
         ]
