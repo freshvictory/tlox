@@ -596,17 +596,16 @@ viewTokenLiteral token =
         ]
 
 
+-- 12 * 3 == 4 - (52 / (2 - 3)) <= true
 viewParserResults : Model -> Html Msg
 viewParserResults model =
     case model.parseResult of
         Just expr ->
             E.ol
                 [ css
-                    [ Css.displayFlex
-                    , Css.flexDirection Css.column
-                    , Css.alignItems Css.center
-                    , Css.textAlign Css.center
+                    [ Css.textAlign Css.center
                     , Css.fontFamily Css.monospace
+                    , Css.position Css.relative
                     ]
                 ]
                 [ viewExpression expr
@@ -614,6 +613,7 @@ viewParserResults model =
         Nothing -> E.text "No results."
 
 
+-- Tree styling adapted from https://codepen.io/Avaneesh/pen/QWwNrBX
 viewExpression : Expr -> Html Msg
 viewExpression expr =
     let
@@ -632,10 +632,44 @@ viewExpression expr =
     in
     E.li
         [ css
-            [ Css.displayFlex
-            , Css.flexDirection Css.column
-            , Css.alignItems Css.center
-            , Css.margin (rem 0.75)
+            [ Css.float Css.left
+            , Css.padding4 (rem 1.25) (rem 0.25) Css.zero (rem 0.25)
+            , Css.position Css.relative
+            , Css.before
+                [ Css.property "content" "''"
+                , Css.position Css.absolute
+                , Css.top Css.zero
+                , Css.right (pct 50)
+                , Css.width (pct 50)
+                , Css.height (rem 1.25)
+                , Css.borderTop3 (px 1) Css.solid (hex "#ccc")
+                ]
+            , Css.after
+                [ Css.property "content" "''"
+                , Css.position Css.absolute
+                , Css.top Css.zero
+                , Css.left (pct 50)
+                , Css.width (pct 50)
+                , Css.height (rem 1.25)
+                , Css.borderTop3 (px 1) Css.solid (hex "#ccc")
+                , Css.borderLeft3 (px 1) Css.solid (hex "#ccc")
+                ]
+            , Css.onlyChild
+                [ Css.before [ Css.display Css.none ]
+                , Css.after [ Css.display Css.none ]
+                , Css.paddingTop Css.zero
+                ]
+            , Css.firstChild
+                [ Css.before [ Css.border Css.zero ]
+                , Css.after [ Css.borderTopLeftRadius (rem 0.25) ]
+                ]
+            , Css.lastChild
+                [ Css.after [ Css.border Css.zero ]
+                , Css.before
+                    [ Css.borderRight3 (px 1) Css.solid (hex "#ccc")
+                    , Css.borderTopRightRadius (rem 0.25)
+                    ]
+                ]
             ]
         ]
         [ viewExprChar token char
@@ -643,7 +677,17 @@ viewExpression expr =
             Binary b ->
                 E.ol
                     [ css
-                        [ Css.displayFlex
+                        [ Css.position Css.relative
+                        , Css.paddingTop (rem 1.25)
+                        , Css.before
+                            [ Css.property "content" "''"
+                            , Css.position Css.absolute
+                            , Css.top Css.zero
+                            , Css.left (pct 50)
+                            , Css.borderLeft3 (px 1) Css.solid (hex "#ccc")
+                            , Css.width Css.zero
+                            , Css.height (rem 1.25)
+                            ]
                         ]
                     ]
                     [ viewExpression b.left
@@ -651,10 +695,42 @@ viewExpression expr =
                     ]
 
             Unary u ->
-                viewExpression u.right
+                E.ol
+                    [ css
+                        [ Css.position Css.relative
+                        , Css.paddingTop (rem 1.25)
+                        , Css.before
+                            [ Css.property "content" "''"
+                            , Css.position Css.absolute
+                            , Css.top Css.zero
+                            , Css.left (pct 50)
+                            , Css.borderLeft3 (px 1) Css.solid (hex "#ccc")
+                            , Css.width Css.zero
+                            , Css.height (rem 1.25)
+                            ]
+                        ]
+                    ]
+                    [ viewExpression u.right
+                    ]
 
             Grouping g ->
-                viewExpression g.expression
+                E.ol
+                    [ css
+                        [ Css.position Css.relative
+                        , Css.paddingTop (rem 1.25)
+                        , Css.before
+                            [ Css.property "content" "''"
+                            , Css.position Css.absolute
+                            , Css.top Css.zero
+                            , Css.left (pct 50)
+                            , Css.borderLeft3 (px 1) Css.solid (hex "#ccc")
+                            , Css.width Css.zero
+                            , Css.height (rem 1.25)
+                            ]
+                        ]
+                    ]
+                    [ viewExpression g.expression
+                    ]
 
             Literal _ ->
                 E.text ""
@@ -663,13 +739,14 @@ viewExpression expr =
 
 viewExprChar : Token -> String -> Html Msg
 viewExprChar token s =
-    E.span
+    E.div
         [  css
-            [ Css.border3 (px 1) Css.solid (hex "#fff")
+            [ Css.border3 (px 1) Css.solid (hex "#ccc")
             , Css.borderRadius (rem 0.5)
             , Css.maxWidth Css.maxContent
             , Css.lineHeight (Css.num 1)
             , Css.padding (rem 0.5)
+            , Css.display Css.inlineBlock
             ]
         , Html.Styled.Attributes.class "token"
         , Html.Styled.Attributes.class token.tokenTypeString
