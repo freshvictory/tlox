@@ -39,7 +39,10 @@ port parseError : (Maybe Json.Decode.Value -> msg) -> Sub msg
 main : Program () Model Msg
 main =
     Browser.document
-        { view = \model -> { title = "Lox", body = [ model |> view |> toUnstyled ] }
+        { view = \model ->
+            { title = "Lox"
+            , body = [ model |> view |> toUnstyled ]
+            }
         , init = \_ -> init
         , update = update
         , subscriptions = \_ -> Sub.batch
@@ -55,6 +58,10 @@ main =
 ---- MODEL ----
 
 
+type Tab
+    = Scanner
+    | Parser
+
 type alias Model =
     { input : String
     , scanResult : List Token
@@ -62,6 +69,7 @@ type alias Model =
     , parseResult : Maybe Expr
     , parseErrors : List ParseError
     , hover : Maybe Token
+    , tab : Tab
     }
 
 
@@ -73,6 +81,7 @@ defaultModel =
     , parseResult = Nothing
     , parseErrors = []
     , hover = Nothing
+    , tab = Parser
     }
 
 
@@ -92,6 +101,7 @@ type Msg
     | ReportScanError (Maybe ScanError)
     | ReportParseError (Maybe Json.Decode.Value)
     | Hover (Maybe Token)
+    | TabChange Tab
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -147,7 +157,9 @@ update msg model =
                 Just e ->
                     case Json.Decode.decodeValue decodeParseError e of
                         Ok err ->
-                            ( { model | parseErrors = model.parseErrors ++ [ ] }
+                            ( { model
+                              | parseErrors = model.parseErrors ++ [ err ]
+                              }
                             , Cmd.none
                             )
                         Err _ ->
@@ -157,6 +169,11 @@ update msg model =
 
         Hover t ->
             ( { model | hover = t }
+            , Cmd.none
+            )
+
+        TabChange t ->
+            ( { model | tab = t }
             , Cmd.none
             )
 
@@ -253,7 +270,9 @@ viewLines model =
             , themed
                 [ (Css.backgroundColor, .softBackground)
                 , (Css.color, .softText)
-                , (Css.boxShadow6 Css.inset (px -7) Css.zero (px 9) (px -7), .shadow)
+                , ( Css.boxShadow6 Css.inset (px -7) Css.zero (px 9) (px -7)
+                  , .shadow
+                  )
                 ]
             ]
         ]
@@ -315,7 +334,6 @@ viewSource model =
             , Css.property "grid-column" "2"
             , Css.property "grid-row" "1"
             , Css.pointerEvents Css.none
-            , Css.fontWeight Css.bold
             ]
         ]
         ( List.map
@@ -365,11 +383,65 @@ viewResults model =
     E.section
         [ css
             [ Css.property "display" "grid"
-            , Css.property "column-gap" "0.5rem"
-            -- , Css.property "grid-template-columns" "1fr 1fr"
+            , Css.property "row-gap" "0.5rem"
+            , Css.property "grid-template-rows" "max-content 1fr"
             ]
         ]
-        [ viewParserResults model
+        [ E.div
+            [ css
+                [ Css.displayFlex
+                , Css.justifyContent Css.center
+                ]
+            ]
+            [ viewTabRadio model "scanner" "Scanner" Scanner
+            , viewTabRadio model "parser" "Parser" Parser
+            ]
+        , case model.tab of
+            Scanner ->
+                viewTokens model
+
+            Parser ->
+                viewParserResults model
+        ]
+
+
+viewTabRadio : Model -> String -> String -> Tab -> Html Msg
+viewTabRadio model id label tab =
+    E.label
+        [ css
+            [ Css.lineHeight (Css.num 1)
+            , Css.padding (rem 0.5)
+            , Css.border3 (px 1) Css.solid (hex light.purple)
+            , Css.display Css.block
+            , Css.firstChild
+                [ Css.borderTopLeftRadius (rem 0.25)
+                , Css.borderBottomLeftRadius (rem 0.25)
+                ]
+            , Css.lastChild
+                [ Css.borderTopRightRadius (rem 0.25)
+                , Css.borderBottomRightRadius (rem 0.25)
+                ]
+            , if model.tab == tab then
+                Css.batch
+                    [ Css.backgroundColor (hex light.purple)
+                    , Css.color (hex "fff")
+                    ]
+
+              else
+                Css.batch []
+            ]
+        , Html.Styled.Attributes.for ("result-" ++ id)
+        ]
+        [ E.input
+            [ Html.Styled.Attributes.type_ "radio"
+            , Html.Styled.Attributes.name "result"
+            , Html.Styled.Attributes.id ("result-" ++ id)
+            , Html.Styled.Events.on "change" (Json.Decode.succeed (TabChange tab))
+            , Html.Styled.Attributes.checked (model.tab == tab)
+            , css [ Css.display Css.none ]
+            ]
+            []
+        , E.text label
         ]
 
 
@@ -377,7 +449,12 @@ viewTokens : Model -> Html Msg
 viewTokens model =
     let
         tokensByLine = model.scanResult
-            |> List.filter (\t -> t.tokenType /= WHITESPACE && t.tokenType /= EOF)
+            |> List.filter
+                ( \t ->
+                    t.tokenType /= WHITESPACE
+                    && t.tokenType /= EOF
+                    && t.tokenType /= UNEXPECTED
+                )
             |> groupBy .line
     in
     E.ol
@@ -682,7 +759,7 @@ type TokenType
     | AND | CLASS | ELSE | FALSE | FUN | FOR
     | IF | NIL | OR | PRINT | RETURN | SUPER
     | THIS | TRUE | VAR | WHILE
-    | COMMENT | WHITESPACE | EOF
+    | COMMENT | WHITESPACE | UNEXPECTED | EOF
 
 
 type TokenLiteral
@@ -744,19 +821,23 @@ decodeParseError =
 encodeToken : Token -> Json.Decode.Value
 encodeToken token =
     Json.Encode.object
-        [ ( "type", Json.Encode.string token.tokenTypeString )
-        , ( "lexeme", Json.Encode.string token.lexeme )
-        , ( "line", Json.Encode.int token.line )
-        , ( "start", Json.Encode.int token.start )
-        , ( "literal"
-        , case token.literal of
-            Nothing -> Json.Encode.null
-            Just (Str s) -> Json.Encode.string s
-            Just (Num f) -> Json.Encode.float f
-            Just (Boolean b) -> Json.Encode.bool b
-            Just Nil -> Json.Encode.null
+        ( [ ( "type", Json.Encode.string token.tokenTypeString )
+          , ( "lexeme", Json.Encode.string token.lexeme )
+          , ( "line", Json.Encode.int token.line )
+          , ( "start", Json.Encode.int token.start )
+          ]
+        ++ case token.literal of
+            Nothing -> []
+            Just v ->
+                [ ( "literal"
+                  , case v of
+                        Str s -> Json.Encode.string s
+                        Num f -> Json.Encode.float f
+                        Boolean b -> Json.Encode.bool b
+                        Nil -> Json.Encode.null
+                  )
+                ]
         )
-        ]
 
 
 decodeToken : Decoder Token
@@ -816,6 +897,7 @@ decodeTokenType =
                     "WHILE" -> Json.Decode.succeed WHILE
                     "COMMENT" -> Json.Decode.succeed COMMENT
                     "WHITESPACE" -> Json.Decode.succeed WHITESPACE
+                    "UNEXPECTED" -> Json.Decode.succeed UNEXPECTED
                     "EOF" -> Json.Decode.succeed EOF
                     _ -> Json.Decode.fail ("Unexpected token " ++ s)
             )

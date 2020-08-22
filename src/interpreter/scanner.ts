@@ -30,7 +30,7 @@ export type TokenType =
 
   // Non-parsed tokens
   
-  | 'COMMENT' | 'WHITESPACE'
+  | 'COMMENT' | 'WHITESPACE' | 'UNEXPECTED'
 
 
   | 'EOF';
@@ -164,6 +164,7 @@ class Scanner {
           this.identifier();
         } else {
           this.error(`Unexpected character: ${c}`);
+          this.addToken('UNEXPECTED');
         }
         break;
     }

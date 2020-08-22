@@ -130,6 +130,7 @@ class Scanner {
                 }
                 else {
                     this.error(`Unexpected character: ${c}`);
+                    this.addToken('UNEXPECTED');
                 }
                 break;
         }

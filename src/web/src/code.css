@@ -27,6 +27,10 @@
     --t-color: #a3a3a3;
   }
 
+  .UNEXPECTED {
+    color: red;
+  }
+
   .hover {
     background-color: #a8ff05;
   }
@@ -53,6 +57,10 @@
   
   .COMMENT {
     --t-color: #8e8e8e;
+  }
+
+  .UNEXPECTED {
+    color: red;
   }
 
   .hover {
