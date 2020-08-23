@@ -36,7 +36,7 @@
   }
 
   .selected {
-    background-color: #43b4a1;
+    background-color: #97f1e2;
   }
 }
 
@@ -72,7 +72,6 @@
   }
 
   .selected {
-    background-color: #43b4a1;
-    color: black;
+    background-color: #1b544b;
   }
 }

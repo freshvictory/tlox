@@ -11,6 +11,7 @@ import String
 import List
 import Theme exposing (Theme, light, dark)
 import Css.Media
+import Css.Global
 
 
 
@@ -69,7 +70,7 @@ type alias Model =
     , parseResult : Maybe Expr
     , parseErrors : List ParseError
     , hover : Maybe Token
-    , selectedTokens : List Token
+    , selectedExpr : Maybe Expr
     , tab : Tab
     }
 
@@ -82,7 +83,7 @@ defaultModel =
     , parseResult = Nothing
     , parseErrors = []
     , hover = Nothing
-    , selectedTokens = []
+    , selectedExpr = Nothing
     , tab = Parser
     }
 
@@ -118,7 +119,7 @@ update msg model =
         ScanResult v ->
             case Json.Decode.decodeValue (Json.Decode.list decodeToken) v of
                 Ok tokens ->
-                    ( { model | scanResult = tokens }
+                    ( { model | scanResult = tokens, selectedExpr = Nothing }
                     , parse (Json.Encode.list encodeToken tokens)
                     )
 
@@ -176,7 +177,7 @@ update msg model =
             )
 
         SelectExpr e ->
-            ( { model | selectedTokens = getExprTokenRange model.scanResult e }
+            ( { model | selectedExpr = Just e }
             , Cmd.none
             )
 
@@ -346,6 +347,10 @@ viewSource : Model -> Html Msg
 viewSource model =
     let
         lines = groupBy .line model.scanResult
+        selectedTokens =
+            case model.selectedExpr of
+                Just e -> getExprTokenRange model.scanResult e
+                Nothing -> []
     in
     E.code
         [ css
@@ -356,25 +361,25 @@ viewSource model =
             ]
         ]
         ( List.map
-            (\t -> viewSourceLine model t)
+            (\t -> viewSourceLine model selectedTokens t)
             lines
         )
 
 
 
-viewSourceLine : Model -> List Token -> Html Msg
-viewSourceLine model tokens =
+viewSourceLine : Model -> List Token -> List Token -> Html Msg
+viewSourceLine model selected tokens =
     E.pre
         [ css [ Css.display Css.inline ]
         ]
         ( List.map
-            ( \t -> viewTokenSource model t)
+            ( \t -> viewTokenSource model selected t)
             tokens
         )
 
 
-viewTokenSource : Model -> Token -> Html Msg
-viewTokenSource model token =
+viewTokenSource : Model -> List Token -> Token -> Html Msg
+viewTokenSource model selected token =
     E.span
         [ css 
             [ Css.textShadow2 Css.zero Css.zero
@@ -391,7 +396,7 @@ viewTokenSource model token =
                 _ -> ""
             )
         , Html.Styled.Attributes.class
-            (if List.member token model.selectedTokens then "selected" else "")
+            (if List.member token selected then "selected" else "")
         ]
         [ E.text token.lexeme
         ]
@@ -620,26 +625,16 @@ viewParserResults model =
                     , Css.position Css.relative
                     ]
                 ]
-                [ viewExpression expr
+                [ viewExpression model expr
                 ]
         Nothing -> E.text "No results."
 
 
 -- Tree styling adapted from https://codepen.io/Avaneesh/pen/QWwNrBX
-viewExpression : Expr -> Html Msg
-viewExpression expr =
+viewExpression : Model -> Expr -> Html Msg
+viewExpression model expr =
     let
         tokens = exprToken expr
-        char = case expr of
-            Binary b -> b.operator.lexeme
-            Unary u -> u.operator.lexeme
-            Grouping g -> "()"
-            Literal l ->
-                case l.value of
-                    Str s -> s
-                    Num n -> (String.fromFloat n)
-                    Boolean b -> if b then "true" else "false"
-                    Nil -> "nil"
     in
     E.li
         [ css
@@ -681,9 +676,26 @@ viewExpression expr =
                     , Css.borderTopRightRadius (rem 0.25)
                     ]
                 ]
+            , Css.batch
+                ( case model.selectedExpr of
+                    Just e ->
+                        ( if expr == e then
+                            [ Css.Global.descendants
+                                [ Css.Global.typeSelector "button"
+                                    [ themed
+                                        [ (Css.backgroundColor, .highlight) ]
+                                    ]
+                                ]
+                            ]
+                        else
+                            []
+                        )
+                    Nothing ->
+                        []
+                    )
             ]
         ]
-        [ viewExprChar expr tokens char
+        [ viewExprChar expr tokens
         , case expr of
             Binary b ->
                 E.ol
@@ -701,8 +713,8 @@ viewExpression expr =
                             ]
                         ]
                     ]
-                    [ viewExpression b.left
-                    , viewExpression b.right
+                    [ viewExpression model b.left
+                    , viewExpression model b.right
                     ]
 
             Unary u ->
@@ -721,7 +733,7 @@ viewExpression expr =
                             ]
                         ]
                     ]
-                    [ viewExpression u.right
+                    [ viewExpression model u.right
                     ]
 
             Grouping g ->
@@ -740,7 +752,7 @@ viewExpression expr =
                             ]
                         ]
                     ]
-                    [ viewExpression g.expression
+                    [ viewExpression model g.expression
                     ]
 
             Literal _ ->
@@ -748,15 +760,14 @@ viewExpression expr =
         ]
 
 
-viewExprChar : Expr -> List Token -> String -> Html Msg
-viewExprChar e tokens s =
+viewExprChar : Expr -> List Token -> Html Msg
+viewExprChar e tokens =
     E.button
-        [  css
+        [ css
             [ Css.border3 (px 1) Css.solid (hex "#ccc")
             , Css.borderRadius (rem 0.5)
             , Css.maxWidth Css.maxContent
             , Css.lineHeight (Css.num 1)
-            , Css.padding (rem 0.5)
             , Css.display Css.inlineBlock
             ]
         , Html.Styled.Events.onClick (SelectExpr e)
@@ -764,7 +775,12 @@ viewExprChar e tokens s =
         ( List.map
             ( \t ->
                 E.span
-                    [ Html.Styled.Attributes.class "token"
+                    [ css
+                        [ Css.borderRadius (rem 0.5)
+                        , Css.padding (rem 0.5)
+                        , Css.display Css.inlineBlock
+                        ]
+                    , Html.Styled.Attributes.class "token"
                     , Html.Styled.Attributes.class t.tokenTypeString
                     , Html.Styled.Events.onMouseOver (Hover (Just t))
                     , Html.Styled.Events.onMouseLeave (Hover Nothing)
