@@ -1,7 +1,8 @@
 module Interpreter exposing (..)
 
-import Json.Encode
 import Json.Decode exposing (Decoder, field)
+import Json.Encode
+
 
 type alias ScanError =
     { line : Int
@@ -23,29 +24,28 @@ type Expr
 
 
 type alias BinaryExpr =
-  { left: Expr
-  , right: Expr
-  , operator: Token
-  }
+    { left : Expr
+    , right : Expr
+    , operator : Token
+    }
 
 
 type alias UnaryExpr =
-    { operator: Token
-    , right: Expr
+    { operator : Token
+    , right : Expr
     }
 
 
 type alias GroupingExpr =
-    { expression: Expr
-    , tokens: List Token
+    { expression : Expr
+    , tokens : List Token
     }
 
 
 type alias LiteralExpr =
-    { value: TokenLiteral
-    , token: Token
+    { value : TokenLiteral
+    , token : Token
     }
-
 
 
 type alias Token =
@@ -59,16 +59,48 @@ type alias Token =
 
 
 type TokenType
-    = LEFT_PAREN | RIGHT_PAREN
-    | LEFT_BRACE | RIGHT_BRACE
-    | COMMA | DOT | MINUS | PLUS | SEMICOLON | SLASH | STAR
-    | BANG | BANG_EQUAL | EQUAL | EQUAL_EQUAL 
-    | GREATER | GREATER_EQUAL | LESS | LESS_EQUAL
-    | IDENTIFIER | STRING | NUMBER
-    | AND | CLASS | ELSE | FALSE | FUN | FOR
-    | IF | NIL | OR | PRINT | RETURN | SUPER
-    | THIS | TRUE | VAR | WHILE
-    | COMMENT | WHITESPACE | UNEXPECTED | EOF
+    = LEFT_PAREN
+    | RIGHT_PAREN
+    | LEFT_BRACE
+    | RIGHT_BRACE
+    | COMMA
+    | DOT
+    | MINUS
+    | PLUS
+    | SEMICOLON
+    | SLASH
+    | STAR
+    | BANG
+    | BANG_EQUAL
+    | EQUAL
+    | EQUAL_EQUAL
+    | GREATER
+    | GREATER_EQUAL
+    | LESS
+    | LESS_EQUAL
+    | IDENTIFIER
+    | STRING
+    | NUMBER
+    | AND
+    | CLASS
+    | ELSE
+    | FALSE
+    | FUN
+    | FOR
+    | IF
+    | NIL
+    | OR
+    | PRINT
+    | RETURN
+    | SUPER
+    | THIS
+    | TRUE
+    | VAR
+    | WHILE
+    | COMMENT
+    | WHITESPACE
+    | UNEXPECTED
+    | EOF
 
 
 type TokenLiteral
@@ -89,7 +121,7 @@ decodeExprType s =
     case s of
         "binary" ->
             Json.Decode.map Binary
-                ( Json.Decode.map3 BinaryExpr
+                (Json.Decode.map3 BinaryExpr
                     (field "left" decodeExpr)
                     (field "right" decodeExpr)
                     (field "operator" decodeToken)
@@ -97,21 +129,21 @@ decodeExprType s =
 
         "unary" ->
             Json.Decode.map Unary
-                ( Json.Decode.map2 UnaryExpr
+                (Json.Decode.map2 UnaryExpr
                     (field "operator" decodeToken)
                     (field "right" decodeExpr)
                 )
-    
+
         "grouping" ->
             Json.Decode.map Grouping
-                ( Json.Decode.map2 GroupingExpr
+                (Json.Decode.map2 GroupingExpr
                     (field "expression" decodeExpr)
                     (field "tokens" (Json.Decode.list decodeToken))
                 )
 
         "literal" ->
             Json.Decode.map Literal
-                ( Json.Decode.map2 LiteralExpr
+                (Json.Decode.map2 LiteralExpr
                     (field "value" decodeTokenLiteral)
                     (field "token" decodeToken)
                 )
@@ -125,41 +157,37 @@ encodeExpr e =
     case e of
         Binary b ->
             Json.Encode.object
-                ( [ ( "type", Json.Encode.string "binary" )
-                  , ( "left", encodeExpr b.left)
-                  , ( "right", encodeExpr b.right)
-                  , ( "operator", encodeToken b.operator)
-                  ]
-                )
+                [ ( "type", Json.Encode.string "binary" )
+                , ( "left", encodeExpr b.left )
+                , ( "right", encodeExpr b.right )
+                , ( "operator", encodeToken b.operator )
+                ]
 
         Unary u ->
             Json.Encode.object
-                ( [ ( "type", Json.Encode.string "unary" )
-                  , ( "right", encodeExpr u.right)
-                  , ( "operator", encodeToken u.operator)
-                  ]
-                )
+                [ ( "type", Json.Encode.string "unary" )
+                , ( "right", encodeExpr u.right )
+                , ( "operator", encodeToken u.operator )
+                ]
 
         Grouping g ->
             Json.Encode.object
-                ( [ ( "type", Json.Encode.string "grouping" )
-                  , ( "expression", encodeExpr g.expression )
-                  , ( "tokens", Json.Encode.list encodeToken g.tokens)
-                  ]
-                )
+                [ ( "type", Json.Encode.string "grouping" )
+                , ( "expression", encodeExpr g.expression )
+                , ( "tokens", Json.Encode.list encodeToken g.tokens )
+                ]
 
         Literal l ->
             Json.Encode.object
-                ( [ ( "type", Json.Encode.string "literal" )
-                  , ( "value"
-                    , encodeTokenLiteral
-                        ( Maybe.withDefault
-                          Nil
-                          l.token.literal
+                [ ( "type", Json.Encode.string "literal" )
+                , ( "value"
+                  , encodeTokenLiteral
+                        (Maybe.withDefault
+                            Nil
+                            l.token.literal
                         )
-                    )
-                  ]
-                )
+                  )
+                ]
 
 
 decodeParseError : Decoder ParseError
@@ -172,25 +200,35 @@ decodeParseError =
 encodeToken : Token -> Json.Decode.Value
 encodeToken token =
     Json.Encode.object
-        ( [ ( "type", Json.Encode.string token.tokenTypeString )
-          , ( "lexeme", Json.Encode.string token.lexeme )
-          , ( "line", Json.Encode.int token.line )
-          , ( "start", Json.Encode.int token.start )
-          ]
-        ++ case token.literal of
-            Nothing -> []
-            Just v ->
-                [ ( "literal", encodeTokenLiteral v ) ]
+        ([ ( "type", Json.Encode.string token.tokenTypeString )
+         , ( "lexeme", Json.Encode.string token.lexeme )
+         , ( "line", Json.Encode.int token.line )
+         , ( "start", Json.Encode.int token.start )
+         ]
+            ++ (case token.literal of
+                    Nothing ->
+                        []
+
+                    Just v ->
+                        [ ( "literal", encodeTokenLiteral v ) ]
+               )
         )
 
 
 encodeTokenLiteral : TokenLiteral -> Json.Decode.Value
 encodeTokenLiteral l =
     case l of
-        Str s -> Json.Encode.string s
-        Num f -> Json.Encode.float f
-        Boolean b -> Json.Encode.bool b
-        Nil -> Json.Encode.null
+        Str s ->
+            Json.Encode.string s
+
+        Num f ->
+            Json.Encode.float f
+
+        Boolean b ->
+            Json.Encode.bool b
+
+        Nil ->
+            Json.Encode.null
 
 
 decodeToken : Decoder Token
@@ -208,51 +246,136 @@ decodeTokenType : Decoder TokenType
 decodeTokenType =
     Json.Decode.string
         |> Json.Decode.andThen
-            ( \s ->
+            (\s ->
                 case s of
-                    "LEFT_PAREN" -> Json.Decode.succeed LEFT_PAREN
-                    "RIGHT_PAREN" -> Json.Decode.succeed RIGHT_PAREN
-                    "LEFT_BRACE" -> Json.Decode.succeed LEFT_BRACE
-                    "RIGHT_BRACE" -> Json.Decode.succeed RIGHT_BRACE
-                    "COMMA" -> Json.Decode.succeed COMMA
-                    "DOT" -> Json.Decode.succeed DOT
-                    "MINUS" -> Json.Decode.succeed MINUS
-                    "PLUS" -> Json.Decode.succeed PLUS
-                    "SEMICOLON" -> Json.Decode.succeed SEMICOLON
-                    "SLASH" -> Json.Decode.succeed SLASH
-                    "STAR" -> Json.Decode.succeed STAR
-                    "BANG" -> Json.Decode.succeed BANG
-                    "BANG_EQUAL" -> Json.Decode.succeed BANG_EQUAL
-                    "EQUAL" -> Json.Decode.succeed EQUAL
-                    "EQUAL_EQUAL" -> Json.Decode.succeed EQUAL_EQUAL
-                    "GREATER" -> Json.Decode.succeed GREATER
-                    "GREATER_EQUAL" -> Json.Decode.succeed GREATER_EQUAL
-                    "LESS" -> Json.Decode.succeed LESS
-                    "LESS_EQUAL" -> Json.Decode.succeed LESS_EQUAL
-                    "IDENTIFIER" -> Json.Decode.succeed IDENTIFIER
-                    "STRING" -> Json.Decode.succeed STRING
-                    "NUMBER" -> Json.Decode.succeed NUMBER
-                    "AND" -> Json.Decode.succeed AND
-                    "CLASS" -> Json.Decode.succeed CLASS
-                    "ELSE" -> Json.Decode.succeed ELSE
-                    "FALSE" -> Json.Decode.succeed FALSE
-                    "FUN" -> Json.Decode.succeed FUN
-                    "FOR" -> Json.Decode.succeed FOR
-                    "IF" -> Json.Decode.succeed IF
-                    "NIL" -> Json.Decode.succeed NIL
-                    "OR" -> Json.Decode.succeed OR
-                    "PRINT" -> Json.Decode.succeed PRINT
-                    "RETURN" -> Json.Decode.succeed RETURN
-                    "SUPER" -> Json.Decode.succeed SUPER
-                    "THIS" -> Json.Decode.succeed THIS
-                    "TRUE" -> Json.Decode.succeed TRUE
-                    "VAR" -> Json.Decode.succeed VAR
-                    "WHILE" -> Json.Decode.succeed WHILE
-                    "COMMENT" -> Json.Decode.succeed COMMENT
-                    "WHITESPACE" -> Json.Decode.succeed WHITESPACE
-                    "UNEXPECTED" -> Json.Decode.succeed UNEXPECTED
-                    "EOF" -> Json.Decode.succeed EOF
-                    _ -> Json.Decode.fail ("Unexpected token " ++ s)
+                    "LEFT_PAREN" ->
+                        Json.Decode.succeed LEFT_PAREN
+
+                    "RIGHT_PAREN" ->
+                        Json.Decode.succeed RIGHT_PAREN
+
+                    "LEFT_BRACE" ->
+                        Json.Decode.succeed LEFT_BRACE
+
+                    "RIGHT_BRACE" ->
+                        Json.Decode.succeed RIGHT_BRACE
+
+                    "COMMA" ->
+                        Json.Decode.succeed COMMA
+
+                    "DOT" ->
+                        Json.Decode.succeed DOT
+
+                    "MINUS" ->
+                        Json.Decode.succeed MINUS
+
+                    "PLUS" ->
+                        Json.Decode.succeed PLUS
+
+                    "SEMICOLON" ->
+                        Json.Decode.succeed SEMICOLON
+
+                    "SLASH" ->
+                        Json.Decode.succeed SLASH
+
+                    "STAR" ->
+                        Json.Decode.succeed STAR
+
+                    "BANG" ->
+                        Json.Decode.succeed BANG
+
+                    "BANG_EQUAL" ->
+                        Json.Decode.succeed BANG_EQUAL
+
+                    "EQUAL" ->
+                        Json.Decode.succeed EQUAL
+
+                    "EQUAL_EQUAL" ->
+                        Json.Decode.succeed EQUAL_EQUAL
+
+                    "GREATER" ->
+                        Json.Decode.succeed GREATER
+
+                    "GREATER_EQUAL" ->
+                        Json.Decode.succeed GREATER_EQUAL
+
+                    "LESS" ->
+                        Json.Decode.succeed LESS
+
+                    "LESS_EQUAL" ->
+                        Json.Decode.succeed LESS_EQUAL
+
+                    "IDENTIFIER" ->
+                        Json.Decode.succeed IDENTIFIER
+
+                    "STRING" ->
+                        Json.Decode.succeed STRING
+
+                    "NUMBER" ->
+                        Json.Decode.succeed NUMBER
+
+                    "AND" ->
+                        Json.Decode.succeed AND
+
+                    "CLASS" ->
+                        Json.Decode.succeed CLASS
+
+                    "ELSE" ->
+                        Json.Decode.succeed ELSE
+
+                    "FALSE" ->
+                        Json.Decode.succeed FALSE
+
+                    "FUN" ->
+                        Json.Decode.succeed FUN
+
+                    "FOR" ->
+                        Json.Decode.succeed FOR
+
+                    "IF" ->
+                        Json.Decode.succeed IF
+
+                    "NIL" ->
+                        Json.Decode.succeed NIL
+
+                    "OR" ->
+                        Json.Decode.succeed OR
+
+                    "PRINT" ->
+                        Json.Decode.succeed PRINT
+
+                    "RETURN" ->
+                        Json.Decode.succeed RETURN
+
+                    "SUPER" ->
+                        Json.Decode.succeed SUPER
+
+                    "THIS" ->
+                        Json.Decode.succeed THIS
+
+                    "TRUE" ->
+                        Json.Decode.succeed TRUE
+
+                    "VAR" ->
+                        Json.Decode.succeed VAR
+
+                    "WHILE" ->
+                        Json.Decode.succeed WHILE
+
+                    "COMMENT" ->
+                        Json.Decode.succeed COMMENT
+
+                    "WHITESPACE" ->
+                        Json.Decode.succeed WHITESPACE
+
+                    "UNEXPECTED" ->
+                        Json.Decode.succeed UNEXPECTED
+
+                    "EOF" ->
+                        Json.Decode.succeed EOF
+
+                    _ ->
+                        Json.Decode.fail ("Unexpected token " ++ s)
             )
 
 
@@ -269,10 +392,21 @@ decodeTokenLiteral =
 tokenLiteralString : TokenLiteral -> String
 tokenLiteralString l =
     case l of
-        Str s -> s
-        Num f -> String.fromFloat f
-        Boolean b -> if b then "true" else "false"
-        Nil -> "null"
+        Str s ->
+            s
+
+        Num f ->
+            String.fromFloat f
+
+        Boolean b ->
+            if b then
+                "true"
+
+            else
+                "false"
+
+        Nil ->
+            "null"
 
 
 decodeRunResult : Decoder TokenLiteral
@@ -284,16 +418,16 @@ exprToken : Expr -> List Token
 exprToken expr =
     case expr of
         Binary e ->
-            [e.operator]
-        
+            [ e.operator ]
+
         Unary e ->
-            [e.operator]
+            [ e.operator ]
 
         Grouping e ->
             e.tokens
 
         Literal e ->
-            [e.token]
+            [ e.token ]
 
 
 getExprTokenMin : Expr -> Maybe Int
@@ -331,11 +465,14 @@ getExprTokenMax expr =
 getExprTokenRange : List Token -> Expr -> List Token
 getExprTokenRange full expr =
     let
-        (min, max) = (getExprTokenMin expr, getExprTokenMax expr)
+        ( min, max ) =
+            ( getExprTokenMin expr, getExprTokenMax expr )
     in
-        List.filter
-            ( \t ->
-                t.start >= Maybe.withDefault 0 min
-                && t.start <= Maybe.withDefault t.start max
-            )
-            full
+    List.filter
+        (\t ->
+            t.start
+                >= Maybe.withDefault 0 min
+                && t.start
+                <= Maybe.withDefault t.start max
+        )
+        full

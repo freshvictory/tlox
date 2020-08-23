@@ -2,17 +2,17 @@ port module Main exposing (main)
 
 import Browser
 import Css exposing (Style, hex, pct, px, rem)
+import Css.Global
+import Css.Media
 import Html.Styled as E exposing (Html, toUnstyled)
 import Html.Styled.Attributes exposing (css)
 import Html.Styled.Events exposing (onInput)
-import Json.Encode
-import Json.Decode exposing (Decoder, field)
-import String
-import List
-import Theme exposing (Theme, light, dark)
-import Css.Media
-import Css.Global
 import Interpreter exposing (..)
+import Json.Decode
+import Json.Encode
+import List
+import String
+import Theme exposing (Theme, dark, light)
 
 
 
@@ -21,19 +21,27 @@ import Interpreter exposing (..)
 
 port scan : String -> Cmd msg
 
+
 port scanResult : (Json.Decode.Value -> msg) -> Sub msg
+
 
 port scanError : (Maybe ScanError -> msg) -> Sub msg
 
+
 port parse : Json.Decode.Value -> Cmd msg
+
 
 port parseResult : (Json.Decode.Value -> msg) -> Sub msg
 
+
 port parseError : (Maybe Json.Decode.Value -> msg) -> Sub msg
+
 
 port run : Json.Decode.Value -> Cmd msg
 
+
 port runResult : (Json.Decode.Value -> msg) -> Sub msg
+
 
 port runError : (Maybe Json.Decode.Value -> msg) -> Sub msg
 
@@ -45,20 +53,23 @@ port runError : (Maybe Json.Decode.Value -> msg) -> Sub msg
 main : Program () Model Msg
 main =
     Browser.document
-        { view = \model ->
-            { title = "Lox"
-            , body = [ model |> view |> toUnstyled ]
-            }
+        { view =
+            \model ->
+                { title = "Lox"
+                , body = [ model |> view |> toUnstyled ]
+                }
         , init = \_ -> init
         , update = update
-        , subscriptions = \_ -> Sub.batch
-            [ scanResult ScanResult
-            , parseResult ParseResult
-            , runResult RunResult
-            , scanError ReportScanError
-            , parseError ReportParseError
-            , runError ReportRunError
-            ]
+        , subscriptions =
+            \_ ->
+                Sub.batch
+                    [ scanResult ScanResult
+                    , parseResult ParseResult
+                    , runResult RunResult
+                    , scanError ReportScanError
+                    , parseError ReportParseError
+                    , runError ReportRunError
+                    ]
         }
 
 
@@ -70,6 +81,7 @@ type Tab
     = Scanner
     | Parser
     | Run
+
 
 type alias Model =
     { input : String
@@ -148,7 +160,7 @@ update msg model =
                     ( { model | parseResult = Just expr }
                     , run (encodeExpr expr)
                     )
-                
+
                 Err _ ->
                     ( { model | parseResult = Nothing }
                     , Cmd.none
@@ -161,7 +173,7 @@ update msg model =
                     , Cmd.none
                     )
 
-                Err e ->
+                Err _ ->
                     ( { model | runResult = Nothing }
                     , Cmd.none
                     )
@@ -184,14 +196,16 @@ update msg model =
                     ( { model | parseErrors = [] }
                     , Cmd.none
                     )
+
                 Just e ->
                     case Json.Decode.decodeValue decodeParseError e of
                         Ok err ->
                             ( { model
-                              | parseErrors = model.parseErrors ++ [ err ]
+                                | parseErrors = model.parseErrors ++ [ err ]
                               }
                             , Cmd.none
                             )
+
                         Err _ ->
                             ( { model | scanErrors = [] }
                             , Cmd.none
@@ -203,7 +217,7 @@ update msg model =
                     ( { model | runError = Nothing }
                     , Cmd.none
                     )
-                
+
                 Just e ->
                     case Json.Decode.decodeValue decodeParseError e of
                         Ok err ->
@@ -223,14 +237,17 @@ update msg model =
 
         SelectExpr e ->
             ( { model
-              | selectedExpr =
-                case model.selectedExpr of
-                    Just expr ->
-                        if expr == e then
-                            Nothing
-                        else
+                | selectedExpr =
+                    case model.selectedExpr of
+                        Just expr ->
+                            if expr == e then
+                                Nothing
+
+                            else
+                                Just e
+
+                        Nothing ->
                             Just e
-                    Nothing -> Just e
               }
             , Cmd.none
             )
@@ -250,8 +267,8 @@ view model =
     E.div
         [ css
             [ themed
-                [ (Css.backgroundColor, .background)
-                , (Css.color, .text)
+                [ ( Css.backgroundColor, .background )
+                , ( Css.color, .text )
                 ]
             , Css.property "display" "grid"
             , Css.property "grid-template-rows" "auto 1fr"
@@ -326,7 +343,7 @@ viewEditor model =
             , Css.property "grid-template-columns" "minmax(2rem, auto) 1fr"
             , Css.property "column-gap" "0.25em"
             , themed
-                [ (Css.border3 (px 2) Css.solid, .softBackground) ]
+                [ ( Css.border3 (px 2) Css.solid, .softBackground ) ]
             ]
         ]
         [ viewLines model
@@ -337,23 +354,26 @@ viewEditor model =
 
 viewLines : Model -> Html Msg
 viewLines model =
-    let lines = groupBy .line model.scanResult in
+    let
+        lines =
+            groupBy .line model.scanResult
+    in
     E.ol
         [ css
             [ Css.property "grid-row" "1"
             , Css.property "grid-column" "1"
             , Css.padding (rem 0.5)
             , themed
-                [ (Css.backgroundColor, .softBackground)
-                , (Css.color, .softText)
+                [ ( Css.backgroundColor, .softBackground )
+                , ( Css.color, .softText )
                 , ( Css.boxShadow6 Css.inset (px -7) Css.zero (px 9) (px -7)
                   , .shadow
                   )
                 ]
             ]
         ]
-        ( List.map
-            ( \n ->
+        (List.map
+            (\n ->
                 E.li
                     [ css
                         [ Css.fontSize (rem 0.8)
@@ -400,11 +420,16 @@ viewInput =
 viewSource : Model -> Html Msg
 viewSource model =
     let
-        lines = groupBy .line model.scanResult
+        lines =
+            groupBy .line model.scanResult
+
         selectedTokens =
             case model.selectedExpr of
-                Just e -> getExprTokenRange model.scanResult e
-                Nothing -> []
+                Just e ->
+                    getExprTokenRange model.scanResult e
+
+                Nothing ->
+                    []
     in
     E.code
         [ css
@@ -414,11 +439,10 @@ viewSource model =
             , Css.pointerEvents Css.none
             ]
         ]
-        ( List.map
+        (List.map
             (\t -> viewSourceLine model selectedTokens t)
             lines
         )
-
 
 
 viewSourceLine : Model -> List Token -> List Token -> Html Msg
@@ -426,8 +450,8 @@ viewSourceLine model selected tokens =
     E.pre
         [ css [ Css.display Css.inline ]
         ]
-        ( List.map
-            ( \t -> viewTokenSource model selected t)
+        (List.map
+            (\t -> viewTokenSource model selected t)
             tokens
         )
 
@@ -435,27 +459,33 @@ viewSourceLine model selected tokens =
 viewTokenSource : Model -> List Token -> Token -> Html Msg
 viewTokenSource model selected token =
     E.span
-        [ css 
+        [ css
             [ Css.textShadow2 Css.zero Css.zero
             ]
         , Html.Styled.Attributes.class token.tokenTypeString
         , Html.Styled.Attributes.class "token"
-        , Html.Styled.Attributes.class ( case model.hover of
+        , Html.Styled.Attributes.class
+            (case model.hover of
                 Just t ->
-                    if t == token
-                        then
-                            "hover"
-                        else
-                            ""
-                _ -> ""
+                    if t == token then
+                        "hover"
+
+                    else
+                        ""
+
+                _ ->
+                    ""
             )
         , Html.Styled.Attributes.class
-            (if List.member token selected then "selected" else "")
+            (if List.member token selected then
+                "selected"
+
+             else
+                ""
+            )
         ]
         [ E.text token.lexeme
         ]
-
-        
 
 
 viewResults : Model -> Html Msg
@@ -536,19 +566,23 @@ viewTabRadio model id label tab =
 viewTokens : Model -> Html Msg
 viewTokens model =
     let
-        tokensByLine = model.scanResult
-            |> List.filter
-                ( \t ->
-                    t.tokenType /= WHITESPACE
-                    && t.tokenType /= EOF
-                    && t.tokenType /= UNEXPECTED
-                )
-            |> groupBy .line
+        tokensByLine =
+            model.scanResult
+                |> List.filter
+                    (\t ->
+                        t.tokenType
+                            /= WHITESPACE
+                            && t.tokenType
+                            /= EOF
+                            && t.tokenType
+                            /= UNEXPECTED
+                    )
+                |> groupBy .line
     in
     E.ol
         [ css
             [ Css.property "display" "grid"
-            , themed [(Css.boxShadow4 Css.zero Css.zero (px 10), .shadow)]
+            , themed [ ( Css.boxShadow4 Css.zero Css.zero (px 10), .shadow ) ]
             , Css.borderRadius (rem 0.5)
             ]
         ]
@@ -581,12 +615,12 @@ viewTokens model =
                             , Css.borderBottomRightRadius (rem 0.5)
                             ]
                         , themed
-                            [ (Css.backgroundColor, .background) ]
-                        , Css.nthChild "2n" 
-                                [ themed
-                                    [ (Css.backgroundColor, .contrastBackground)
-                                    ]
+                            [ ( Css.backgroundColor, .background ) ]
+                        , Css.nthChild "2n"
+                            [ themed
+                                [ ( Css.backgroundColor, .contrastBackground )
                                 ]
+                            ]
                         ]
                     ]
                     [ E.span
@@ -623,13 +657,21 @@ viewLine tokens =
                     , Html.Styled.Events.onMouseLeave (Hover Nothing)
                     ]
                     [ case t.tokenType of
-                        IDENTIFIER -> viewTokenLiteral t
-                        NUMBER -> viewTokenLiteral t
-                        STRING -> viewTokenLiteral t
-                        COMMENT -> viewTokenLiteral t
-                        _ -> viewToken t
+                        IDENTIFIER ->
+                            viewTokenLiteral t
+
+                        NUMBER ->
+                            viewTokenLiteral t
+
+                        STRING ->
+                            viewTokenLiteral t
+
+                        COMMENT ->
+                            viewTokenLiteral t
+
+                        _ ->
+                            viewToken t
                     ]
-                        
             )
             tokens
         )
@@ -660,8 +702,8 @@ viewTokenLiteral token =
             [ Css.maxWidth Css.maxContent
             , Css.display Css.inlineFlex
             , themed
-                [ (Css.backgroundColor, .softBackground)
-                , (Css.boxShadow4 Css.zero Css.zero (px 10), .shadow)
+                [ ( Css.backgroundColor, .softBackground )
+                , ( Css.boxShadow4 Css.zero Css.zero (px 10), .shadow )
                 ]
             , Css.borderRadius (rem 0.25)
             , Css.padding (rem 0.5)
@@ -673,7 +715,10 @@ viewTokenLiteral token =
         ]
 
 
+
 -- 12 * 3 == 4 - (52 / (2 - 3)) <= true
+
+
 viewParserResults : Model -> Html Msg
 viewParserResults model =
     case model.parseResult of
@@ -687,14 +732,20 @@ viewParserResults model =
                 ]
                 [ viewExpression model expr
                 ]
-        Nothing -> E.text "No results."
+
+        Nothing ->
+            E.text "No results."
+
 
 
 -- Tree styling adapted from https://codepen.io/Avaneesh/pen/QWwNrBX
+
+
 viewExpression : Model -> Expr -> Html Msg
 viewExpression model expr =
     let
-        tokens = exprToken expr
+        tokens =
+            exprToken expr
     in
     E.li
         [ css
@@ -737,22 +788,23 @@ viewExpression model expr =
                     ]
                 ]
             , Css.batch
-                ( case model.selectedExpr of
+                (case model.selectedExpr of
                     Just e ->
-                        ( if expr == e then
+                        if expr == e then
                             [ Css.Global.descendants
                                 [ Css.Global.button
                                     [ themed
-                                        [ (Css.backgroundColor, .highlight) ]
+                                        [ ( Css.backgroundColor, .highlight ) ]
                                     ]
                                 ]
                             ]
+
                         else
                             []
-                        )
+
                     Nothing ->
                         []
-                    )
+                )
             ]
         ]
         [ viewExprChar expr tokens
@@ -832,8 +884,8 @@ viewExprChar e tokens =
             ]
         , Html.Styled.Events.onClick (SelectExpr e)
         ]
-        ( List.map
-            ( \t ->
+        (List.map
+            (\t ->
                 E.span
                     [ css
                         [ Css.borderRadius (rem 0.5)
@@ -857,14 +909,16 @@ viewRunResults model =
     E.code
         []
         [ E.pre
-            [
-            ]
+            []
             [ case model.runResult of
-                Just l -> E.text (tokenLiteralString l)
+                Just l ->
+                    E.text (tokenLiteralString l)
+
                 Nothing ->
                     case model.runError of
                         Just e ->
                             E.text e.message
+
                         Nothing ->
                             E.text "No result."
             ]
@@ -887,9 +941,9 @@ viewError model =
                             E.li
                                 []
                                 [ E.text
-                                    ( "Error on line "
-                                    ++ String.fromInt e.line
-                                    ++ ":\n"
+                                    ("Error on line "
+                                        ++ String.fromInt e.line
+                                        ++ ":\n"
                                     )
                                 , E.text e.message
                                 ]
@@ -920,20 +974,19 @@ groupBy prop l =
             (x :: y) :: groupBy prop z
 
 
-
-themed : List (Css.Color -> Style, Theme -> String) -> Style
+themed : List ( Css.Color -> Style, Theme -> String ) -> Style
 themed styles =
     Css.batch
         [ Css.Media.withMediaQuery [ "(prefers-color-scheme: dark)" ]
-            ( List.map
-                ( \(s, t) ->
+            (List.map
+                (\( s, t ) ->
                     s (Css.hex (t dark))
                 )
                 styles
             )
         , Css.Media.withMediaQuery [ "(prefers-color-scheme: light)" ]
-            ( List.map
-                ( \(s, t) ->
+            (List.map
+                (\( s, t ) ->
                     s (Css.hex (t light))
                 )
                 styles
