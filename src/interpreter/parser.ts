@@ -26,7 +26,7 @@ export type Expr =
     value: unknown
   };
 
-class ParseError extends Error {};
+class ParseError extends Error {}
 
 class Parser {
   private readonly tokens: ReadonlyArray<Token>;

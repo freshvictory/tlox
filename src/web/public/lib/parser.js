@@ -1,7 +1,6 @@
 "use strict";
 class ParseError extends Error {
 }
-;
 class Parser {
     constructor(tokens, error) {
         this.current = 0;

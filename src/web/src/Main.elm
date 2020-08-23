@@ -30,7 +30,11 @@ port parseResult : (Json.Decode.Value -> msg) -> Sub msg
 
 port parseError : (Maybe Json.Decode.Value -> msg) -> Sub msg
 
+port run : Json.Decode.Value -> Cmd msg
 
+port runResult : (Json.Decode.Value -> msg) -> Sub msg
+
+port runError : (Maybe Json.Decode.Value -> msg) -> Sub msg
 
 
 
@@ -49,8 +53,10 @@ main =
         , subscriptions = \_ -> Sub.batch
             [ scanResult ScanResult
             , parseResult ParseResult
+            , runResult RunResult
             , scanError ReportScanError
             , parseError ReportParseError
+            , runError ReportRunError
             ]
         }
 
@@ -62,6 +68,7 @@ main =
 type Tab
     = Scanner
     | Parser
+    | Run
 
 type alias Model =
     { input : String
@@ -69,6 +76,8 @@ type alias Model =
     , scanErrors : List ScanError
     , parseResult : Maybe Expr
     , parseErrors : List ParseError
+    , runResult : Maybe TokenLiteral
+    , runError : Maybe ParseError
     , hover : Maybe Token
     , selectedExpr : Maybe Expr
     , tab : Tab
@@ -82,9 +91,11 @@ defaultModel =
     , scanErrors = []
     , parseResult = Nothing
     , parseErrors = []
+    , runResult = Nothing
+    , runError = Nothing
     , hover = Nothing
     , selectedExpr = Nothing
-    , tab = Parser
+    , tab = Run
     }
 
 
@@ -101,8 +112,10 @@ type Msg
     = Input String
     | ScanResult Json.Decode.Value
     | ParseResult Json.Decode.Value
+    | RunResult Json.Decode.Value
     | ReportScanError (Maybe ScanError)
     | ReportParseError (Maybe Json.Decode.Value)
+    | ReportRunError (Maybe Json.Decode.Value)
     | Hover (Maybe Token)
     | SelectExpr Expr
     | TabChange Tab
@@ -132,11 +145,23 @@ update msg model =
             case Json.Decode.decodeValue decodeExpr p of
                 Ok expr ->
                     ( { model | parseResult = Just expr }
-                    , Cmd.none
+                    , run (encodeExpr expr)
                     )
                 
                 Err _ ->
                     ( { model | parseResult = Nothing }
+                    , Cmd.none
+                    )
+
+        RunResult r ->
+            case Json.Decode.decodeValue decodeRunResult r of
+                Ok l ->
+                    ( { model | runResult = Just l }
+                    , Cmd.none
+                    )
+
+                Err e ->
+                    ( { model | runResult = Nothing }
                     , Cmd.none
                     )
 
@@ -163,11 +188,31 @@ update msg model =
                         Ok err ->
                             ( { model
                               | parseErrors = model.parseErrors ++ [ err ]
+                              , runResult = Nothing
                               }
                             , Cmd.none
                             )
                         Err _ ->
                             ( { model | scanErrors = [] }
+                            , Cmd.none
+                            )
+
+        ReportRunError reportedError ->
+            case reportedError of
+                Nothing ->
+                    ( { model | runError = Nothing }
+                    , Cmd.none
+                    )
+                
+                Just e ->
+                    case Json.Decode.decodeValue decodeParseError e of
+                        Ok err ->
+                            ( { model | runError = Just err }
+                            , Cmd.none
+                            )
+
+                        Err _ ->
+                            ( { model | runError = Nothing }
                             , Cmd.none
                             )
 
@@ -177,7 +222,16 @@ update msg model =
             )
 
         SelectExpr e ->
-            ( { model | selectedExpr = Just e }
+            ( { model
+              | selectedExpr =
+                case model.selectedExpr of
+                    Just expr ->
+                        if expr == e then
+                            Nothing
+                        else
+                            Just e
+                    Nothing -> Just e
+              }
             , Cmd.none
             )
 
@@ -421,6 +475,7 @@ viewResults model =
             ]
             [ viewTabRadio model "scanner" "Scanner" Scanner
             , viewTabRadio model "parser" "Parser" Parser
+            , viewTabRadio model "runner" "Run" Run
             ]
         , case model.tab of
             Scanner ->
@@ -428,6 +483,9 @@ viewResults model =
 
             Parser ->
                 viewParserResults model
+
+            Run ->
+                viewRunResults model
         ]
 
 
@@ -792,6 +850,25 @@ viewExprChar e tokens =
         )
 
 
+viewRunResults : Model -> Html Msg
+viewRunResults model =
+    E.code
+        []
+        [ E.pre
+            [
+            ]
+            [ case model.runResult of
+                Just l -> E.text (tokenLiteralString l)
+                Nothing ->
+                    case model.runError of
+                        Just e ->
+                            E.text e.message
+                        Nothing ->
+                            E.text "No result."
+            ]
+        ]
+
+
 viewError : Model -> Html Msg
 viewError model =
     case model.scanErrors of
@@ -941,6 +1018,48 @@ decodeExprType s =
             Json.Decode.fail ("Unknown expr type: " ++ s)
 
 
+encodeExpr : Expr -> Json.Decode.Value
+encodeExpr e =
+    case e of
+        Binary b ->
+            Json.Encode.object
+                ( [ ( "type", Json.Encode.string "binary" )
+                  , ( "left", encodeExpr b.left)
+                  , ( "right", encodeExpr b.right)
+                  , ( "operator", encodeToken b.operator)
+                  ]
+                )
+
+        Unary u ->
+            Json.Encode.object
+                ( [ ( "type", Json.Encode.string "unary" )
+                  , ( "right", encodeExpr u.right)
+                  , ( "operator", encodeToken u.operator)
+                  ]
+                )
+
+        Grouping g ->
+            Json.Encode.object
+                ( [ ( "type", Json.Encode.string "grouping" )
+                  , ( "expression", encodeExpr g.expression )
+                  , ( "tokens", Json.Encode.list encodeToken g.tokens)
+                  ]
+                )
+
+        Literal l ->
+            Json.Encode.object
+                ( [ ( "type", Json.Encode.string "literal" )
+                  , ( "value"
+                    , encodeTokenLiteral
+                        ( Maybe.withDefault
+                          Nil
+                          l.token.literal
+                        )
+                    )
+                  ]
+                )
+
+
 decodeParseError : Decoder ParseError
 decodeParseError =
     Json.Decode.map2 ParseError
@@ -959,15 +1078,17 @@ encodeToken token =
         ++ case token.literal of
             Nothing -> []
             Just v ->
-                [ ( "literal"
-                  , case v of
-                        Str s -> Json.Encode.string s
-                        Num f -> Json.Encode.float f
-                        Boolean b -> Json.Encode.bool b
-                        Nil -> Json.Encode.null
-                  )
-                ]
+                [ ( "literal", encodeTokenLiteral v ) ]
         )
+
+
+encodeTokenLiteral : TokenLiteral -> Json.Decode.Value
+encodeTokenLiteral l =
+    case l of
+        Str s -> Json.Encode.string s
+        Num f -> Json.Encode.float f
+        Boolean b -> Json.Encode.bool b
+        Nil -> Json.Encode.null
 
 
 decodeToken : Decoder Token
@@ -1041,6 +1162,20 @@ decodeTokenLiteral =
         , Json.Decode.map Boolean Json.Decode.bool
         , Json.Decode.null Nil
         ]
+
+
+tokenLiteralString : TokenLiteral -> String
+tokenLiteralString l =
+    case l of
+        Str s -> s
+        Num f -> String.fromFloat f
+        Boolean b -> if b then "true" else "false"
+        Nil -> "null"
+
+
+decodeRunResult : Decoder TokenLiteral
+decodeRunResult =
+    field "result" decodeTokenLiteral
 
 
 exprToken : Expr -> List Token

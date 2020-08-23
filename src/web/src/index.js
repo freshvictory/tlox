@@ -29,3 +29,18 @@ app.ports.parse.subscribe(function (t) {
   app.ports.parseError.send(null);
   parserWorker.postMessage(t);
 });
+
+const interpreterWorker = new Worker('interpreter-worker.js');
+interpreterWorker.onmessage = ({ data }) => {
+  const [result, error] = data;
+  if (error) {
+    app.ports.runError.send(error);
+  } else {
+    app.ports.runResult.send(result);
+  }
+}
+
+app.ports.run.subscribe(function (e) {
+  app.ports.runError.send(null);
+  interpreterWorker.postMessage(e);
+})
