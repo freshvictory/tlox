@@ -27,24 +27,28 @@ type alias BinaryExpr =
     { left : Expr
     , right : Expr
     , operator : Token
+    , result : Maybe TokenLiteral
     }
 
 
 type alias UnaryExpr =
     { operator : Token
     , right : Expr
+    , result : Maybe TokenLiteral
     }
 
 
 type alias GroupingExpr =
     { expression : Expr
     , tokens : List Token
+    , result : Maybe TokenLiteral
     }
 
 
 type alias LiteralExpr =
     { value : TokenLiteral
     , token : Token
+    , result : Maybe TokenLiteral
     }
 
 
@@ -121,31 +125,35 @@ decodeExprType s =
     case s of
         "binary" ->
             Json.Decode.map Binary
-                (Json.Decode.map3 BinaryExpr
+                (Json.Decode.map4 BinaryExpr
                     (field "left" decodeExpr)
                     (field "right" decodeExpr)
                     (field "operator" decodeToken)
+                    (Json.Decode.maybe (field "result" decodeTokenLiteral))
                 )
 
         "unary" ->
             Json.Decode.map Unary
-                (Json.Decode.map2 UnaryExpr
+                (Json.Decode.map3 UnaryExpr
                     (field "operator" decodeToken)
                     (field "right" decodeExpr)
+                    (Json.Decode.maybe (field "result" decodeTokenLiteral))
                 )
 
         "grouping" ->
             Json.Decode.map Grouping
-                (Json.Decode.map2 GroupingExpr
+                (Json.Decode.map3 GroupingExpr
                     (field "expression" decodeExpr)
                     (field "tokens" (Json.Decode.list decodeToken))
+                    (Json.Decode.maybe (field "result" decodeTokenLiteral))
                 )
 
         "literal" ->
             Json.Decode.map Literal
-                (Json.Decode.map2 LiteralExpr
+                (Json.Decode.map3 LiteralExpr
                     (field "value" decodeTokenLiteral)
                     (field "token" decodeToken)
+                    (Json.Decode.maybe (field "result" decodeTokenLiteral))
                 )
 
         _ ->
@@ -187,6 +195,7 @@ encodeExpr e =
                             l.token.literal
                         )
                   )
+                , ( "token", encodeToken l.token )
                 ]
 
 
@@ -428,6 +437,23 @@ exprToken expr =
 
         Literal e ->
             [ e.token ]
+
+
+exprResult : Expr -> Maybe TokenLiteral
+exprResult expr =
+    case expr of
+        Binary e ->
+            e.result
+
+        Unary e ->
+            e.result
+
+        Grouping e ->
+            e.result
+
+        Literal e ->
+            e.result
+    
 
 
 getExprTokenMin : Expr -> Maybe Int

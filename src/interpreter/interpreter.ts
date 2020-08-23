@@ -2,25 +2,38 @@ import type { Expr } from './parser.ts';
 import type { Token } from './scanner.ts';
 
 export class Interpreter {
-  public static interpret(expr: Expr, error: (e: RuntimeError) => void) {
+  public static interpret(
+    expr: Expr,
+    error: (e: RuntimeError) => void
+  ): Expr & { result?: any } {
     try {
-      return Interpreter.evaluate(expr);
+      Interpreter.evaluateAndRecord(expr);
     } catch (e) {
       error(e);
     }
+
+    return expr;
+  }
+
+
+  private static evaluateAndRecord(expr: Expr & { result?: any }) {
+    const result = Interpreter.evaluate(expr);
+    expr.result = result;
+
+    return result;
   }
 
 
   private static evaluate(expr: Expr): any {
     switch (expr.type) {
       case 'grouping':
-        return Interpreter.evaluate(expr.expression);
+        return Interpreter.evaluateAndRecord(expr.expression);
 
       case 'literal':
         return expr.value;
 
       case 'unary': {
-        const right = Interpreter.evaluate(expr.right);
+        const right = Interpreter.evaluateAndRecord(expr.right);
 
         switch (expr.operator.type) {
           case 'MINUS':
@@ -35,8 +48,8 @@ export class Interpreter {
       }
 
       case 'binary': {
-        const left = Interpreter.evaluate(expr.left);
-        const right = Interpreter.evaluate(expr.right);
+        const left = Interpreter.evaluateAndRecord(expr.left);
+        const right = Interpreter.evaluateAndRecord(expr.right);
 
         switch (expr.operator.type) {
           case 'GREATER':

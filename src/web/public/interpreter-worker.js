@@ -11,5 +11,5 @@ onmessage = function ({ data }) {
 
   const result = Interpreter.interpret(data, err);
 
-  postMessage([{ result }, error]);
+  postMessage([result, error]);
 };

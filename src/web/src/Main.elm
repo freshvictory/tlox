@@ -167,9 +167,12 @@ update msg model =
                     )
 
         RunResult r ->
-            case Json.Decode.decodeValue decodeRunResult r of
+            case Json.Decode.decodeValue decodeExpr r of
                 Ok l ->
-                    ( { model | runResult = Just l }
+                    ( { model
+                      | runResult = exprResult l
+                      , parseResult = Just l
+                      }
                     , Cmd.none
                     )
 
@@ -807,7 +810,7 @@ viewExpression model expr =
                 )
             ]
         ]
-        [ viewExprChar expr tokens
+        [ viewExprChar model expr tokens
         , case expr of
             Binary b ->
                 E.ol
@@ -872,8 +875,8 @@ viewExpression model expr =
         ]
 
 
-viewExprChar : Expr -> List Token -> Html Msg
-viewExprChar e tokens =
+viewExprChar : Model -> Expr -> List Token -> Html Msg
+viewExprChar model e tokens =
     E.button
         [ css
             [ Css.border3 (px 1) Css.solid (hex "#ccc")
@@ -884,23 +887,34 @@ viewExprChar e tokens =
             ]
         , Html.Styled.Events.onClick (SelectExpr e)
         ]
-        (List.map
-            (\t ->
-                E.span
-                    [ css
-                        [ Css.borderRadius (rem 0.5)
-                        , Css.padding (rem 0.5)
-                        , Css.display Css.inlineBlock
+        (List.concat
+            [ List.map
+                (\t ->
+                    E.span
+                        [ css
+                            [ Css.borderRadius (rem 0.5)
+                            , Css.padding (rem 0.5)
+                            , Css.display Css.inlineBlock
+                            ]
+                        , Html.Styled.Attributes.class "token"
+                        , Html.Styled.Attributes.class t.tokenTypeString
+                        , Html.Styled.Events.onMouseOver (Hover (Just t))
+                        , Html.Styled.Events.onMouseLeave (Hover Nothing)
                         ]
-                    , Html.Styled.Attributes.class "token"
-                    , Html.Styled.Attributes.class t.tokenTypeString
-                    , Html.Styled.Events.onMouseOver (Hover (Just t))
-                    , Html.Styled.Events.onMouseLeave (Hover Nothing)
-                    ]
-                    [ E.text t.lexeme
-                    ]
-            )
-            tokens
+                        [ E.text t.lexeme
+                        ]
+                )
+                tokens
+            , case model.selectedExpr of
+                Nothing -> []
+                Just expr ->
+                    if expr == e then
+                        case exprResult e of
+                            Nothing -> []
+                            Just l -> [ E.text (": " ++ tokenLiteralString l) ]
+                    else
+                        []
+            ]
         )
 
 

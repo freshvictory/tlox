@@ -55,9 +55,9 @@ async function run(program: string) {
   );
 
   if (!hadError && !!expressions) {
-    const result = Interpreter.interpret(expressions, runtimeError);
+    const expr = Interpreter.interpret(expressions, runtimeError);
     if (!hadRuntimeError) {
-      console.log(result);
+      console.log(expr.result);
     }
   }
 }

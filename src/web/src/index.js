@@ -33,10 +33,9 @@ app.ports.parse.subscribe(function (t) {
 const interpreterWorker = new Worker('interpreter-worker.js');
 interpreterWorker.onmessage = ({ data }) => {
   const [result, error] = data;
+  app.ports.runResult.send(result);
   if (error) {
     app.ports.runError.send(error);
-  } else {
-    app.ports.runResult.send(result);
   }
 }
 

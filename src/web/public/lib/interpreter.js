@@ -1,19 +1,25 @@
 class Interpreter {
   static interpret(expr, error) {
     try {
-      return Interpreter.evaluate(expr);
+      Interpreter.evaluateAndRecord(expr);
     } catch (e) {
       error(e);
     }
+    return expr;
+  }
+  static evaluateAndRecord(expr) {
+    const result = Interpreter.evaluate(expr);
+    expr.result = result;
+    return result;
   }
   static evaluate(expr) {
     switch (expr.type) {
       case "grouping":
-        return Interpreter.evaluate(expr.expression);
+        return Interpreter.evaluateAndRecord(expr.expression);
       case "literal":
         return expr.value;
       case "unary": {
-        const right = Interpreter.evaluate(expr.right);
+        const right = Interpreter.evaluateAndRecord(expr.right);
         switch (expr.operator.type) {
           case "MINUS":
             Interpreter.checkNumber(expr.operator, right);
@@ -24,8 +30,8 @@ class Interpreter {
         return null;
       }
       case "binary": {
-        const left = Interpreter.evaluate(expr.left);
-        const right = Interpreter.evaluate(expr.right);
+        const left = Interpreter.evaluateAndRecord(expr.left);
+        const right = Interpreter.evaluateAndRecord(expr.right);
         switch (expr.operator.type) {
           case "GREATER":
             Interpreter.checkNumber(expr.operator, right);
