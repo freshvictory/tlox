@@ -17,7 +17,7 @@ export type Expr =
   }
   | {
     type: 'grouping',
-    token: Token,
+    tokens: Token[],
     expression: Expr
   }
   | {
@@ -234,6 +234,8 @@ class Parser {
     }
 
     if (this.match('LEFT_PAREN')) {
+      const firstParen = this.previous();
+
       const expr = this.expression();
 
       this.consume('RIGHT_PAREN', `Expect ')' after expression.`);
@@ -241,7 +243,7 @@ class Parser {
       return {
         type: 'grouping',
         expression: expr,
-        token: this.previous()
+        tokens: [firstParen, this.previous()]
       };
     }
 

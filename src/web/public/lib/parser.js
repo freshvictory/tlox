@@ -1,3 +1,4 @@
+"use strict";
 class ParseError extends Error {
 }
 ;
@@ -164,12 +165,13 @@ class Parser {
             };
         }
         if (this.match('LEFT_PAREN')) {
+            const firstParen = this.previous();
             const expr = this.expression();
             this.consume('RIGHT_PAREN', `Expect ')' after expression.`);
             return {
                 type: 'grouping',
                 expression: expr,
-                token: this.previous()
+                tokens: [firstParen, this.previous()]
             };
         }
         throw this.error(this.peek(), "Expect expression.");

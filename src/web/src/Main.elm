@@ -69,6 +69,7 @@ type alias Model =
     , parseResult : Maybe Expr
     , parseErrors : List ParseError
     , hover : Maybe Token
+    , selectedTokens : List Token
     , tab : Tab
     }
 
@@ -81,6 +82,7 @@ defaultModel =
     , parseResult = Nothing
     , parseErrors = []
     , hover = Nothing
+    , selectedTokens = []
     , tab = Parser
     }
 
@@ -101,6 +103,7 @@ type Msg
     | ReportScanError (Maybe ScanError)
     | ReportParseError (Maybe Json.Decode.Value)
     | Hover (Maybe Token)
+    | SelectExpr Expr
     | TabChange Tab
 
 
@@ -169,6 +172,11 @@ update msg model =
 
         Hover t ->
             ( { model | hover = t }
+            , Cmd.none
+            )
+
+        SelectExpr e ->
+            ( { model | selectedTokens = getExprTokenRange model.scanResult e }
             , Cmd.none
             )
 
@@ -382,6 +390,8 @@ viewTokenSource model token =
                             ""
                 _ -> ""
             )
+        , Html.Styled.Attributes.class
+            (if List.member token model.selectedTokens then "selected" else "")
         ]
         [ E.text token.lexeme
         ]
@@ -447,7 +457,9 @@ viewTabRadio model id label tab =
             [ Html.Styled.Attributes.type_ "radio"
             , Html.Styled.Attributes.name "result"
             , Html.Styled.Attributes.id ("result-" ++ id)
-            , Html.Styled.Events.on "change" (Json.Decode.succeed (TabChange tab))
+            , Html.Styled.Events.on
+                "change"
+                (Json.Decode.succeed (TabChange tab))
             , Html.Styled.Attributes.checked (model.tab == tab)
             , css [ Css.display Css.none ]
             ]
@@ -617,18 +629,17 @@ viewParserResults model =
 viewExpression : Expr -> Html Msg
 viewExpression expr =
     let
-        (token, char) = case expr of
-            Binary b -> (b.operator, b.operator.lexeme)
-            Unary u -> (u.operator, u.operator.lexeme)
-            Grouping g -> (g.token, "()")
+        tokens = exprToken expr
+        char = case expr of
+            Binary b -> b.operator.lexeme
+            Unary u -> u.operator.lexeme
+            Grouping g -> "()"
             Literal l ->
-                ( l.token
-                , case l.value of
+                case l.value of
                     Str s -> s
                     Num n -> (String.fromFloat n)
                     Boolean b -> if b then "true" else "false"
                     Nil -> "nil"
-                )
     in
     E.li
         [ css
@@ -672,7 +683,7 @@ viewExpression expr =
                 ]
             ]
         ]
-        [ viewExprChar token char
+        [ viewExprChar expr tokens char
         , case expr of
             Binary b ->
                 E.ol
@@ -737,9 +748,9 @@ viewExpression expr =
         ]
 
 
-viewExprChar : Token -> String -> Html Msg
-viewExprChar token s =
-    E.div
+viewExprChar : Expr -> List Token -> String -> Html Msg
+viewExprChar e tokens s =
+    E.button
         [  css
             [ Css.border3 (px 1) Css.solid (hex "#ccc")
             , Css.borderRadius (rem 0.5)
@@ -748,12 +759,21 @@ viewExprChar token s =
             , Css.padding (rem 0.5)
             , Css.display Css.inlineBlock
             ]
-        , Html.Styled.Attributes.class "token"
-        , Html.Styled.Attributes.class token.tokenTypeString
-        , Html.Styled.Events.onMouseOver (Hover (Just token))
-        , Html.Styled.Events.onMouseLeave (Hover Nothing)
+        , Html.Styled.Events.onClick (SelectExpr e)
         ]
-        [ E.text s ]
+        ( List.map
+            ( \t ->
+                E.span
+                    [ Html.Styled.Attributes.class "token"
+                    , Html.Styled.Attributes.class t.tokenTypeString
+                    , Html.Styled.Events.onMouseOver (Hover (Just t))
+                    , Html.Styled.Events.onMouseLeave (Hover Nothing)
+                    ]
+                    [ E.text t.lexeme
+                    ]
+            )
+            tokens
+        )
 
 
 viewError : Model -> Html Msg
@@ -771,7 +791,11 @@ viewError model =
                         (\e ->
                             E.li
                                 []
-                                [ E.text ("Error on line " ++ String.fromInt e.line ++ ":\n")
+                                [ E.text
+                                    ( "Error on line "
+                                    ++ String.fromInt e.line
+                                    ++ ":\n"
+                                    )
                                 , E.text e.message
                                 ]
                         )
@@ -818,7 +842,7 @@ type alias UnaryExpr =
 
 type alias GroupingExpr =
     { expression: Expr
-    , token: Token
+    , tokens: List Token
     }
 
 
@@ -887,7 +911,7 @@ decodeExprType s =
             Json.Decode.map Grouping
                 ( Json.Decode.map2 GroupingExpr
                     (field "expression" decodeExpr)
-                    (field "token" decodeToken)
+                    (field "tokens" (Json.Decode.list decodeToken))
                 )
 
         "literal" ->
@@ -1001,6 +1025,68 @@ decodeTokenLiteral =
         , Json.Decode.map Boolean Json.Decode.bool
         , Json.Decode.null Nil
         ]
+
+
+exprToken : Expr -> List Token
+exprToken expr =
+    case expr of
+        Binary e ->
+            [e.operator]
+        
+        Unary e ->
+            [e.operator]
+
+        Grouping e ->
+            e.tokens
+
+        Literal e ->
+            [e.token]
+
+
+getExprTokenMin : Expr -> Maybe Int
+getExprTokenMin expr =
+    case expr of
+        Binary e ->
+            getExprTokenMin e.left
+
+        Unary e ->
+            Just e.operator.start
+
+        Grouping e ->
+            Maybe.map .start (List.head e.tokens)
+
+        Literal e ->
+            Just e.token.start
+
+
+getExprTokenMax : Expr -> Maybe Int
+getExprTokenMax expr =
+    case expr of
+        Binary e ->
+            getExprTokenMax e.right
+
+        Unary e ->
+            getExprTokenMax e.right
+
+        Grouping e ->
+            Maybe.map .start (List.head (List.reverse e.tokens))
+
+        Literal e ->
+            Just e.token.start
+
+
+getExprTokenRange : List Token -> Expr -> List Token
+getExprTokenRange full expr =
+    let
+        (min, max) = (getExprTokenMin expr, getExprTokenMax expr)
+    in
+        List.filter
+            ( \t ->
+                t.start >= Maybe.withDefault 0 min
+                && t.start <= Maybe.withDefault t.start max
+            )
+            full
+
 
 
 
