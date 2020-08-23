@@ -1,4 +1,4 @@
-import type { Token, TokenType } from './scanner';
+import type { Token, TokenType } from './scanner.ts';
 
 
 // Expressions
@@ -38,7 +38,7 @@ class Parser {
     this.errorInternal = error;
   }
 
-  public parse(): Expr {
+  public parse(): Expr | null {
     try {
       return this.expression();
     } catch (e) {

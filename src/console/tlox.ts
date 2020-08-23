@@ -1,5 +1,6 @@
-import { parse, prettyPrint } from '../interpreter/parser.ts';
+import { parse } from '../interpreter/parser.ts';
 import { scanTokens } from '../interpreter/scanner.ts';
+import { Interpreter, RuntimeError } from '../interpreter/interpreter.ts';
 
 
 main(Deno.args);
@@ -18,6 +19,7 @@ async function main(args: string[]) {
 
 
 let hadError = false;
+let hadRuntimeError = false;
 
 
 async function runFile(path: string) {
@@ -27,6 +29,7 @@ async function runFile(path: string) {
 
   run(text);
   if (hadError) { Deno.exit(65); }
+  if (hadRuntimeError) Deno.exit(70);
 }
 
 
@@ -44,17 +47,33 @@ async function runPrompt() {
 
 async function run(program: string) {
   const tokens = scanTokens(program, error);
-  const expressions = parse(tokens, (t, m) => console.error(`Error parsing token: ${t}: m`));
-
-  console.log(expressions
-    ? prettyPrint(expressions)
-    : 'Invalid expression.'
+  const expressions = parse(tokens,
+    (t, m) => {
+      console.error(`Error parsing token: ${t.type}: ${m}`);
+      hadError = true;
+    }
   );
+
+  if (!hadError && !!expressions) {
+    const result = Interpreter.interpret(expressions, runtimeError);
+    if (!hadRuntimeError) {
+      console.log(result);
+    }
+  }
 }
 
 
 function error(line: number, message: string) {
   report(line, "", message);
+}
+
+
+function runtimeError(e: RuntimeError) {
+  console.error(
+`Runtime error:
+[line ${e.token.line}] ${e.message}`
+  );
+  hadRuntimeError = true;
 }
 
 

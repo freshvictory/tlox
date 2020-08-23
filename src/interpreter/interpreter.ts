@@ -1,5 +1,5 @@
-import type { Expr } from './parser';
-import type { Token } from './scanner';
+import type { Expr } from './parser.ts';
+import type { Token } from './scanner.ts';
 
 export class Interpreter {
   public static interpret(expr: Expr, error: (e: RuntimeError) => void) {
@@ -11,7 +11,7 @@ export class Interpreter {
   }
 
 
-  private static evaluate(expr: Expr) {
+  private static evaluate(expr: Expr): any {
     switch (expr.type) {
       case 'grouping':
         return Interpreter.evaluate(expr.expression);
@@ -100,7 +100,7 @@ export class Interpreter {
   }
 }
 
-class RuntimeError extends Error {
+export class RuntimeError extends Error {
   constructor(readonly token: Token, message: string) {
     super(message);
   }
