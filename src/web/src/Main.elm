@@ -170,8 +170,8 @@ update msg model =
             case Json.Decode.decodeValue decodeExpr r of
                 Ok l ->
                     ( { model
-                      | runResult = exprResult l
-                      , parseResult = Just l
+                        | runResult = exprResult l
+                        , parseResult = Just l
                       }
                     , Cmd.none
                     )
@@ -205,6 +205,7 @@ update msg model =
                         Ok err ->
                             ( { model
                                 | parseErrors = model.parseErrors ++ [ err ]
+                                , runError = Nothing
                               }
                             , Cmd.none
                             )
@@ -408,7 +409,7 @@ viewInput =
             , Css.fontFamily Css.monospace
             , Css.margin Css.zero
             , Css.backgroundColor Css.transparent
-            , Css.property "caret-color" "inherit"
+            , themedProperty "caret-color" .text
             , Css.property "grid-column" "2"
             , Css.property "grid-row" "1"
             , Css.focus [ Css.outline Css.none ]
@@ -416,6 +417,7 @@ viewInput =
         , Html.Styled.Attributes.autocomplete False
         , Html.Styled.Attributes.attribute "autocapitalize" "none"
         , Html.Styled.Attributes.spellcheck False
+        , Html.Styled.Attributes.autofocus True
         ]
         []
 
@@ -462,10 +464,7 @@ viewSourceLine model selected tokens =
 viewTokenSource : Model -> List Token -> Token -> Html Msg
 viewTokenSource model selected token =
     E.span
-        [ css
-            [ Css.textShadow2 Css.zero Css.zero
-            ]
-        , Html.Styled.Attributes.class token.tokenTypeString
+        [ Html.Styled.Attributes.class token.tokenTypeString
         , Html.Styled.Attributes.class "token"
         , Html.Styled.Attributes.class
             (case model.hover of
@@ -508,7 +507,7 @@ viewResults model =
             ]
             [ viewTabRadio model "scanner" "Scanner" Scanner
             , viewTabRadio model "parser" "Parser" Parser
-            , viewTabRadio model "runner" "Run" Run
+            , viewTabRadio model "runner" "Interpreter" Run
             ]
         , case model.tab of
             Scanner ->
@@ -731,6 +730,7 @@ viewParserResults model =
                     [ Css.textAlign Css.center
                     , Css.fontFamily Css.monospace
                     , Css.position Css.relative
+                    , Css.overflowX Css.auto
                     ]
                 ]
                 [ viewExpression model expr
@@ -755,6 +755,7 @@ viewExpression model expr =
             [ Css.float Css.left
             , Css.padding4 (rem 1.25) (rem 0.25) Css.zero (rem 0.25)
             , Css.position Css.relative
+            , Css.minWidth Css.maxContent
             , Css.before
                 [ Css.property "content" "''"
                 , Css.position Css.absolute
@@ -810,7 +811,7 @@ viewExpression model expr =
                 )
             ]
         ]
-        [ viewExprChar model expr tokens
+        [ viewExprChar expr tokens
         , case expr of
             Binary b ->
                 E.ol
@@ -875,8 +876,17 @@ viewExpression model expr =
         ]
 
 
-viewExprChar : Model -> Expr -> List Token -> Html Msg
-viewExprChar model e tokens =
+viewExprChar : Expr -> List Token -> Html Msg
+viewExprChar e tokens =
+    let
+        tokenResult =
+            case exprResult e of
+                Nothing ->
+                    ""
+
+                Just l ->
+                    "'" ++ tokenLiteralString l ++ "'"
+    in
     E.button
         [ css
             [ Css.border3 (px 1) Css.solid (hex "#ccc")
@@ -884,17 +894,46 @@ viewExprChar model e tokens =
             , Css.maxWidth Css.maxContent
             , Css.lineHeight (Css.num 1)
             , Css.display Css.inlineBlock
+            , Css.after
+                [ Css.property
+                    "content"
+                    (case e of
+                        Literal _ ->
+                            ""
+
+                        Binary _ ->
+                            tokenResult
+
+                        Unary _ ->
+                            tokenResult
+
+                        Grouping _ ->
+                            tokenResult
+                    )
+                , Css.position Css.absolute
+                , Css.marginLeft (rem 0.5)
+                , Css.padding (rem 0.5)
+                , Css.borderRadius (rem 0.5)
+                , themed
+                    [ ( Css.backgroundColor, .softBackground )
+                    , ( Css.color, .softText )
+                    ]
+                ]
             ]
         , Html.Styled.Events.onClick (SelectExpr e)
         ]
-        (List.concat
-            [ List.map
+        [ E.span
+            [ css
+                [ Css.borderRadius (rem 0.5)
+                , Css.padding (rem 0.5)
+                , Css.display Css.inlineBlock
+                ]
+            ]
+            (List.map
                 (\t ->
                     E.span
                         [ css
-                            [ Css.borderRadius (rem 0.5)
-                            , Css.padding (rem 0.5)
-                            , Css.display Css.inlineBlock
+                            [ Css.display Css.inlineBlock
                             ]
                         , Html.Styled.Attributes.class "token"
                         , Html.Styled.Attributes.class t.tokenTypeString
@@ -905,17 +944,8 @@ viewExprChar model e tokens =
                         ]
                 )
                 tokens
-            , case model.selectedExpr of
-                Nothing -> []
-                Just expr ->
-                    if expr == e then
-                        case exprResult e of
-                            Nothing -> []
-                            Just l -> [ E.text (": " ++ tokenLiteralString l) ]
-                    else
-                        []
-            ]
-        )
+            )
+        ]
 
 
 viewRunResults : Model -> Html Msg
@@ -1005,4 +1035,14 @@ themed styles =
                 )
                 styles
             )
+        ]
+
+
+themedProperty : String -> (Theme -> String) -> Style
+themedProperty name style =
+    Css.batch
+        [ Css.Media.withMediaQuery [ "(prefers-color-scheme: dark)" ]
+            [ Css.property name ("#" ++ style dark) ]
+        , Css.Media.withMediaQuery [ "(prefers-color-scheme: light)" ]
+            [ Css.property name ("#" ++ style light) ]
         ]

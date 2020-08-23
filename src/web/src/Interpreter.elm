@@ -189,11 +189,7 @@ encodeExpr e =
             Json.Encode.object
                 [ ( "type", Json.Encode.string "literal" )
                 , ( "value"
-                  , encodeTokenLiteral
-                        (Maybe.withDefault
-                            Nil
-                            l.token.literal
-                        )
+                  , encodeTokenLiteral l.value
                   )
                 , ( "token", encodeToken l.token )
                 ]
@@ -453,7 +449,6 @@ exprResult expr =
 
         Literal e ->
             e.result
-    
 
 
 getExprTokenMin : Expr -> Maybe Int
