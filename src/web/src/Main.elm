@@ -9,7 +9,6 @@ import Html.Styled.Attributes exposing (css)
 import Html.Styled.Events exposing (onInput)
 import Interpreter exposing (..)
 import Json.Decode
-import Json.Encode
 import List
 import String
 import Theme exposing (Theme, dark, light)
@@ -46,6 +45,9 @@ port runResult : (Json.Decode.Value -> msg) -> Sub msg
 port runError : (Maybe Json.Decode.Value -> msg) -> Sub msg
 
 
+port log : (String -> msg) -> Sub msg
+
+
 
 ---- PROGRAM ----
 
@@ -69,6 +71,7 @@ main =
                     , scanError ReportScanError
                     , parseError ReportParseError
                     , runError ReportRunError
+                    , log Log
                     ]
         }
 
@@ -87,10 +90,11 @@ type alias Model =
     { input : String
     , scanResult : List Token
     , scanErrors : List ScanError
-    , parseResult : Maybe Expr
+    , parseResult : List Stmt
     , parseErrors : List ParseError
     , runResult : Maybe TokenLiteral
     , runError : Maybe ParseError
+    , console : List String
     , hover : Maybe Token
     , selectedExpr : Maybe Expr
     , tab : Tab
@@ -102,10 +106,11 @@ defaultModel =
     { input = ""
     , scanResult = []
     , scanErrors = []
-    , parseResult = Nothing
+    , parseResult = []
     , parseErrors = []
     , runResult = Nothing
     , runError = Nothing
+    , console = []
     , hover = Nothing
     , selectedExpr = Nothing
     , tab = Run
@@ -132,6 +137,7 @@ type Msg
     | Hover (Maybe Token)
     | SelectExpr Expr
     | TabChange Tab
+    | Log String
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -146,7 +152,7 @@ update msg model =
             case Json.Decode.decodeValue (Json.Decode.list decodeToken) v of
                 Ok tokens ->
                     ( { model | scanResult = tokens, selectedExpr = Nothing }
-                    , parse (Json.Encode.list encodeToken tokens)
+                    , parse v
                     )
 
                 Err _ ->
@@ -155,23 +161,22 @@ update msg model =
                     )
 
         ParseResult p ->
-            case Json.Decode.decodeValue decodeExpr p of
-                Ok expr ->
-                    ( { model | parseResult = Just expr }
-                    , run (encodeExpr expr)
+            case Json.Decode.decodeValue (Json.Decode.list decodeStmt) p of
+                Ok stmts ->
+                    ( { model | parseResult = stmts, console = [] }
+                    , run p
                     )
 
-                Err _ ->
-                    ( { model | parseResult = Nothing }
+                Err e ->
+                    ( { model | parseResult = [] }
                     , Cmd.none
                     )
 
         RunResult r ->
-            case Json.Decode.decodeValue decodeExpr r of
+            case Json.Decode.decodeValue (Json.Decode.list decodeStmt) r of
                 Ok l ->
                     ( { model
-                        | runResult = exprResult l
-                        , parseResult = Just l
+                        | parseResult = l
                       }
                     , Cmd.none
                     )
@@ -258,6 +263,11 @@ update msg model =
 
         TabChange t ->
             ( { model | tab = t }
+            , Cmd.none
+            )
+
+        Log s ->
+            ( { model | console = model.console ++ [ s ] }
             , Cmd.none
             )
 
@@ -724,7 +734,10 @@ viewTokenLiteral token =
 viewParserResults : Model -> Html Msg
 viewParserResults model =
     case model.parseResult of
-        Just expr ->
+        [] ->
+            E.text "No results."
+
+        _ ->
             E.ol
                 [ css
                     [ Css.textAlign Css.center
@@ -732,15 +745,44 @@ viewParserResults model =
                     , Css.position Css.relative
                     , Css.overflowX Css.auto
                     , Css.padding (rem 0.75)
-                    , themed [ (Css.border3 (px 2) Css.solid, .softBackground) ]
+                    , themed [ ( Css.border3 (px 2) Css.solid, .softBackground ) ]
                     , Css.borderRadius (rem 0.5)
                     ]
                 ]
-                [ viewExpression model expr
-                ]
+                (List.map
+                    (viewStmt model)
+                    model.parseResult
+                )
 
-        Nothing ->
-            E.text "No results."
+
+viewStmt : Model -> Stmt -> Html Msg
+viewStmt model stmt =
+    E.li
+        []
+        [ case stmt of
+            Expression expr ->
+                viewExpressionTree model expr
+
+            Print expr ->
+                viewExpressionTree model expr
+        ]
+
+
+viewExpressionTree : Model -> Expr -> Html Msg
+viewExpressionTree model expr =
+    E.ol
+        [ css
+            [ Css.textAlign Css.center
+            , Css.fontFamily Css.monospace
+            , Css.position Css.relative
+            , Css.overflowX Css.auto
+            , Css.padding (rem 0.75)
+            , themed [ ( Css.border3 (px 2) Css.solid, .softBackground ) ]
+            , Css.borderRadius (rem 0.5)
+            ]
+        ]
+        [ viewExpression model expr
+        ]
 
 
 
@@ -897,7 +939,7 @@ viewExprChar e tokens =
             , Css.maxWidth Css.maxContent
             , Css.lineHeight (Css.num 1)
             , Css.display Css.inlineBlock
-            , themed [ (Css.backgroundColor, .background) ]
+            , themed [ ( Css.backgroundColor, .background ) ]
             , Css.boxShadow2 (px 1) (px 1)
             , Css.marginTop (px 1)
             , Css.after
@@ -958,21 +1000,15 @@ viewRunResults : Model -> Html Msg
 viewRunResults model =
     E.code
         []
-        [ E.pre
-            []
-            [ case model.runResult of
-                Just l ->
-                    E.text (tokenLiteralString l)
-
-                Nothing ->
-                    case model.runError of
-                        Just e ->
-                            E.text e.message
-
-                        Nothing ->
-                            E.text "No result."
-            ]
-        ]
+        (List.map
+            (\m ->
+                E.pre
+                    []
+                    [ E.text m
+                    ]
+            )
+            model.console
+        )
 
 
 viewError : Model -> Html Msg

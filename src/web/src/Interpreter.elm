@@ -16,6 +16,11 @@ type alias ParseError =
     }
 
 
+type Stmt
+    = Expression Expr
+    | Print Expr
+
+
 type Expr
     = Binary BinaryExpr
     | Unary UnaryExpr
@@ -112,6 +117,25 @@ type TokenLiteral
     | Num Float
     | Boolean Bool
     | Nil
+
+
+decodeStmt : Decoder Stmt
+decodeStmt =
+    field "type" Json.Decode.string
+        |> Json.Decode.andThen decodeStmtType
+
+
+decodeStmtType : String -> Decoder Stmt
+decodeStmtType s =
+    case s of
+        "expression" ->
+            Json.Decode.map Expression (field "expression" decodeExpr)
+
+        "print" ->
+            Json.Decode.map Expression (field "expression" decodeExpr)
+
+        _ ->
+            Json.Decode.fail ("Unknown stmt type: " ++ s)
 
 
 decodeExpr : Decoder Expr

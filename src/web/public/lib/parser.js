@@ -7,11 +7,33 @@ class Parser {
     this.errorInternal = error;
   }
   parse() {
-    try {
-      return this.expression();
-    } catch (e) {
-      return null;
+    const stmts = [];
+    while (!this.isAtEnd()) {
+      stmts.push(this.statement());
     }
+    return stmts;
+  }
+  statement() {
+    if (this.match("PRINT")) {
+      return this.printStatement();
+    }
+    return this.expressionStatement();
+  }
+  printStatement() {
+    const expr = this.expression();
+    this.consume("SEMICOLON", "Expect `;` after value.");
+    return {
+      type: "print",
+      expression: expr
+    };
+  }
+  expressionStatement() {
+    const expr = this.expression();
+    this.consume("SEMICOLON", "Expect `;` after value.");
+    return {
+      type: "expression",
+      expression: expr
+    };
   }
   match(...types) {
     return types.some((t) => {

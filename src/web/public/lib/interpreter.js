@@ -1,11 +1,26 @@
 class Interpreter {
-  static interpret(expr, error) {
+  constructor(print, error) {
+    this.print = print;
+    this.error = error;
+  }
+  interpret(stmts) {
     try {
-      Interpreter.evaluateAndRecord(expr);
+      stmts.forEach((s) => this.evaluateStmt(s));
     } catch (e) {
-      error(e);
+      this.error(e);
     }
-    return expr;
+    return stmts;
+  }
+  evaluateStmt(stmt) {
+    switch (stmt.type) {
+      case "expression":
+        Interpreter.evaluateAndRecord(stmt.expression);
+        return;
+      case "print":
+        const val = Interpreter.evaluateAndRecord(stmt.expression);
+        this.print(val + "");
+        return;
+    }
   }
   static evaluateAndRecord(expr) {
     const result = Interpreter.evaluate(expr);

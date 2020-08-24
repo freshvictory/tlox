@@ -9,7 +9,12 @@ onmessage = function ({ data }) {
     };
   };
 
-  const result = Interpreter.interpret(data, err);
+  const log = (object) => {
+    postMessage({ type: 'log', object });
+  };
 
-  postMessage([result, error]);
+  const interpreter = new Interpreter(log, err);
+  const result = interpreter.interpret(data);
+
+  postMessage({ type: 'result', result, error });
 };
