@@ -21,7 +21,7 @@ light =
   , contrastBackground = "cbc8d6"
   , shadow = "ddd"
   , text = "333"
-  , highlight = "97f1e2"
+  , highlight = "d0f2fe"
   }
 
 
@@ -34,5 +34,5 @@ dark =
   , contrastBackground = "4f4c5c"
   , shadow = "111"
   , text = "eee"
-  , highlight = "1b544b"
+  , highlight = "204a62"
   }

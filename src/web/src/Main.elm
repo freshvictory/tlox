@@ -617,7 +617,7 @@ viewTokens model =
                             , Css.borderBottomRightRadius (rem 0.5)
                             ]
                         , themed
-                            [ ( Css.backgroundColor, .background ) ]
+                            [ ( Css.backgroundColor, .softBackground ) ]
                         , Css.nthChild "2n"
                             [ themed
                                 [ ( Css.backgroundColor, .contrastBackground )
@@ -704,7 +704,7 @@ viewTokenLiteral token =
             [ Css.maxWidth Css.maxContent
             , Css.display Css.inlineFlex
             , themed
-                [ ( Css.backgroundColor, .softBackground )
+                [ ( Css.backgroundColor, .background )
                 , ( Css.boxShadow4 Css.zero Css.zero (px 10), .shadow )
                 ]
             , Css.borderRadius (rem 0.25)
@@ -763,7 +763,7 @@ viewExpression model expr =
                 , Css.right (pct 50)
                 , Css.width (pct 50)
                 , Css.height (rem 1.25)
-                , Css.borderTop3 (px 1) Css.solid (hex "#ccc")
+                , Css.borderTop2 (px 3) Css.solid
                 ]
             , Css.after
                 [ Css.property "content" "''"
@@ -772,8 +772,8 @@ viewExpression model expr =
                 , Css.left (pct 50)
                 , Css.width (pct 50)
                 , Css.height (rem 1.25)
-                , Css.borderTop3 (px 1) Css.solid (hex "#ccc")
-                , Css.borderLeft3 (px 1) Css.solid (hex "#ccc")
+                , Css.borderTop2 (px 3) Css.solid
+                , Css.borderLeft2 (px 3) Css.solid
                 ]
             , Css.onlyChild
                 [ Css.before [ Css.display Css.none ]
@@ -782,13 +782,13 @@ viewExpression model expr =
                 ]
             , Css.firstChild
                 [ Css.before [ Css.border Css.zero ]
-                , Css.after [ Css.borderTopLeftRadius (rem 0.25) ]
+                , Css.after [ Css.borderTopLeftRadius (rem 0.75) ]
                 ]
             , Css.lastChild
                 [ Css.after [ Css.border Css.zero ]
                 , Css.before
-                    [ Css.borderRight3 (px 1) Css.solid (hex "#ccc")
-                    , Css.borderTopRightRadius (rem 0.25)
+                    [ Css.borderRight2 (px 3) Css.solid
+                    , Css.borderTopRightRadius (rem 0.75)
                     ]
                 ]
             , Css.batch
@@ -823,7 +823,7 @@ viewExpression model expr =
                             , Css.position Css.absolute
                             , Css.top Css.zero
                             , Css.left (pct 50)
-                            , Css.borderLeft3 (px 1) Css.solid (hex "#ccc")
+                            , Css.borderLeft2 (px 3) Css.solid
                             , Css.width Css.zero
                             , Css.height (rem 1.25)
                             ]
@@ -843,7 +843,7 @@ viewExpression model expr =
                             , Css.position Css.absolute
                             , Css.top Css.zero
                             , Css.left (pct 50)
-                            , Css.borderLeft3 (px 1) Css.solid (hex "#ccc")
+                            , Css.borderLeft2 (px 3) Css.solid
                             , Css.width Css.zero
                             , Css.height (rem 1.25)
                             ]
@@ -862,7 +862,7 @@ viewExpression model expr =
                             , Css.position Css.absolute
                             , Css.top Css.zero
                             , Css.left (pct 50)
-                            , Css.borderLeft3 (px 1) Css.solid (hex "#ccc")
+                            , Css.borderLeft2 (px 3) Css.solid
                             , Css.width Css.zero
                             , Css.height (rem 1.25)
                             ]
@@ -889,11 +889,13 @@ viewExprChar e tokens =
     in
     E.button
         [ css
-            [ Css.border3 (px 1) Css.solid (hex "#ccc")
+            [ Css.border2 (px 2) Css.solid
             , Css.borderRadius (rem 0.5)
             , Css.maxWidth Css.maxContent
             , Css.lineHeight (Css.num 1)
             , Css.display Css.inlineBlock
+            , themed [ (Css.backgroundColor, .background) ]
+            , Css.marginTop (px 1)
             , Css.after
                 [ Css.property
                     "content"
@@ -925,7 +927,7 @@ viewExprChar e tokens =
         [ E.span
             [ css
                 [ Css.borderRadius (rem 0.5)
-                , Css.padding (rem 0.5)
+                , Css.padding2 (rem 0.35) (rem 0.4)
                 , Css.display Css.inlineBlock
                 ]
             ]
