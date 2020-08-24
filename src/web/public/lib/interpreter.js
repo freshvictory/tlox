@@ -65,7 +65,7 @@ class Interpreter {
           case "EQUAL_EQUAL":
             return Interpreter.isEqual(left, right);
           case "BANG_EQUAL":
-            return Interpreter.isEqual(left, right);
+            return !Interpreter.isEqual(left, right);
         }
         return null;
       }

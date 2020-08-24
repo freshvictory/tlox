@@ -87,7 +87,7 @@ export class Interpreter {
             Interpreter.checkNumber(expr.operator, right);
             return left * right;
           case 'EQUAL_EQUAL': return Interpreter.isEqual(left, right);
-          case 'BANG_EQUAL': return Interpreter.isEqual(left, right);
+          case 'BANG_EQUAL': return !Interpreter.isEqual(left, right);
         }
 
         // unreachable
