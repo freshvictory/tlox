@@ -127,6 +127,14 @@ export class Interpreter {
       case 'variable': {
         return this.environment.get(expr.name);
       }
+
+      case 'assignment': {
+        const val = this.evaluateAndRecord(expr.value);
+
+        this.environment.assign(expr.name, val);
+
+        return val;
+      }
     }
   }
 
