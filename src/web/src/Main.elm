@@ -978,6 +978,26 @@ viewExpression model expr =
             Variable _ ->
                 E.text ""
 
+            Assignment a ->
+                E.ol
+                    [ css
+                        [ Css.position Css.relative
+                        , Css.paddingTop (rem 1.25)
+                        , Css.before
+                            [ Css.property "content" "''"
+                            , Css.position Css.absolute
+                            , Css.top Css.zero
+                            , Css.left (pct 50)
+                            , Css.borderLeft2 (px 2) Css.solid
+                            , Css.width Css.zero
+                            , Css.height (rem 1.25)
+                            ]
+                        ]
+                    ]
+                    [ viewExpression model a.value
+                    ]
+
+
         ]
 
 
@@ -1019,6 +1039,9 @@ viewExprChar e tokens =
                             tokenResult
 
                         Variable _ ->
+                            tokenResult
+
+                        Assignment _ ->
                             tokenResult
                     )
                 , Css.padding (rem 0.5)

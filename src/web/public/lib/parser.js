@@ -120,7 +120,24 @@ class Parser {
     }
   }
   expression() {
-    return this.equality();
+    return this.assignment();
+  }
+  assignment() {
+    const expr = this.equality();
+    if (this.match("EQUAL")) {
+      const equals = this.previous();
+      const value = this.assignment();
+      if (expr.type === "variable") {
+        const name = expr.name;
+        return {
+          type: "assignment",
+          name,
+          value
+        };
+      }
+      this.error(equals, "Invalid assignment target.");
+    }
+    return expr;
   }
   equality() {
     let expr = this.comparison();

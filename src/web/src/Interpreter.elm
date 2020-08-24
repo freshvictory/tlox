@@ -33,6 +33,7 @@ type Expr
     | Grouping GroupingExpr
     | Literal LiteralExpr
     | Variable VariableExpr
+    | Assignment AssignmentExpr
 
 
 type alias BinaryExpr =
@@ -66,6 +67,12 @@ type alias LiteralExpr =
 
 type alias VariableExpr =
     { name : Token
+    , result : Maybe TokenLiteral
+    }
+
+type alias AssignmentExpr =
+    { name : Token
+    , value : Expr
     , result : Maybe TokenLiteral
     }
 
@@ -204,6 +211,15 @@ decodeExprType s =
             Json.Decode.map Variable
                 (Json.Decode.map2 VariableExpr
                     (field "name" decodeToken)
+                    (Json.Decode.maybe (field "result" decodeTokenLiteral))
+                )
+
+
+        "assignment" ->
+            Json.Decode.map Assignment
+                (Json.Decode.map3 AssignmentExpr
+                    (field "name" decodeToken)
+                    (field "value" decodeExpr)
                     (Json.Decode.maybe (field "result" decodeTokenLiteral))
                 )
 
@@ -420,6 +436,9 @@ exprToken expr =
         Variable e ->
             [ e.name ]
 
+        Assignment e ->
+            [ e.name ]
+
 
 exprResult : Expr -> Maybe TokenLiteral
 exprResult expr =
@@ -437,6 +456,9 @@ exprResult expr =
             e.result
 
         Variable e ->
+            e.result
+
+        Assignment e ->
             e.result
 
 
@@ -458,6 +480,9 @@ getExprTokenMin expr =
         Variable e ->
             Just e.name.start
 
+        Assignment e ->
+            Just e.name.start
+
 getExprTokenMax : Expr -> Maybe Int
 getExprTokenMax expr =
     case expr of
@@ -474,6 +499,9 @@ getExprTokenMax expr =
             Just e.token.start
 
         Variable e ->
+            Just e.name.start
+
+        Assignment e ->
             Just e.name.start
 
 
