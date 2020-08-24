@@ -1,7 +1,6 @@
 module Interpreter exposing (..)
 
 import Json.Decode exposing (Decoder, field)
-import Json.Encode
 
 
 type alias ScanError =
@@ -19,6 +18,13 @@ type alias ParseError =
 type Stmt
     = Expression Expr
     | Print Expr
+    | Var VarStmt
+
+
+type alias VarStmt =
+    { name : Token
+    , initializer : Maybe Expr
+    }
 
 
 type Expr
@@ -26,6 +32,7 @@ type Expr
     | Unary UnaryExpr
     | Grouping GroupingExpr
     | Literal LiteralExpr
+    | Variable VariableExpr
 
 
 type alias BinaryExpr =
@@ -53,6 +60,12 @@ type alias GroupingExpr =
 type alias LiteralExpr =
     { value : TokenLiteral
     , token : Token
+    , result : Maybe TokenLiteral
+    }
+
+
+type alias VariableExpr =
+    { name : Token
     , result : Maybe TokenLiteral
     }
 
@@ -132,7 +145,14 @@ decodeStmtType s =
             Json.Decode.map Expression (field "expression" decodeExpr)
 
         "print" ->
-            Json.Decode.map Expression (field "expression" decodeExpr)
+            Json.Decode.map Print (field "expression" decodeExpr)
+
+        "var" ->
+            Json.Decode.map Var
+                ( Json.Decode.map2 VarStmt
+                    (field "name" decodeToken)
+                    (Json.Decode.maybe (field "initializer" decodeExpr))
+                )
 
         _ ->
             Json.Decode.fail ("Unknown stmt type: " ++ s)
@@ -180,43 +200,16 @@ decodeExprType s =
                     (Json.Decode.maybe (field "result" decodeTokenLiteral))
                 )
 
+        "variable" ->
+            Json.Decode.map Variable
+                (Json.Decode.map2 VariableExpr
+                    (field "name" decodeToken)
+                    (Json.Decode.maybe (field "result" decodeTokenLiteral))
+                )
+
+
         _ ->
             Json.Decode.fail ("Unknown expr type: " ++ s)
-
-
-encodeExpr : Expr -> Json.Decode.Value
-encodeExpr e =
-    case e of
-        Binary b ->
-            Json.Encode.object
-                [ ( "type", Json.Encode.string "binary" )
-                , ( "left", encodeExpr b.left )
-                , ( "right", encodeExpr b.right )
-                , ( "operator", encodeToken b.operator )
-                ]
-
-        Unary u ->
-            Json.Encode.object
-                [ ( "type", Json.Encode.string "unary" )
-                , ( "right", encodeExpr u.right )
-                , ( "operator", encodeToken u.operator )
-                ]
-
-        Grouping g ->
-            Json.Encode.object
-                [ ( "type", Json.Encode.string "grouping" )
-                , ( "expression", encodeExpr g.expression )
-                , ( "tokens", Json.Encode.list encodeToken g.tokens )
-                ]
-
-        Literal l ->
-            Json.Encode.object
-                [ ( "type", Json.Encode.string "literal" )
-                , ( "value"
-                  , encodeTokenLiteral l.value
-                  )
-                , ( "token", encodeToken l.token )
-                ]
 
 
 decodeParseError : Decoder ParseError
@@ -224,40 +217,6 @@ decodeParseError =
     Json.Decode.map2 ParseError
         (field "token" decodeToken)
         (field "message" Json.Decode.string)
-
-
-encodeToken : Token -> Json.Decode.Value
-encodeToken token =
-    Json.Encode.object
-        ([ ( "type", Json.Encode.string token.tokenTypeString )
-         , ( "lexeme", Json.Encode.string token.lexeme )
-         , ( "line", Json.Encode.int token.line )
-         , ( "start", Json.Encode.int token.start )
-         ]
-            ++ (case token.literal of
-                    Nothing ->
-                        []
-
-                    Just v ->
-                        [ ( "literal", encodeTokenLiteral v ) ]
-               )
-        )
-
-
-encodeTokenLiteral : TokenLiteral -> Json.Decode.Value
-encodeTokenLiteral l =
-    case l of
-        Str s ->
-            Json.Encode.string s
-
-        Num f ->
-            Json.Encode.float f
-
-        Boolean b ->
-            Json.Encode.bool b
-
-        Nil ->
-            Json.Encode.null
 
 
 decodeToken : Decoder Token
@@ -458,6 +417,9 @@ exprToken expr =
         Literal e ->
             [ e.token ]
 
+        Variable e ->
+            [ e.name ]
+
 
 exprResult : Expr -> Maybe TokenLiteral
 exprResult expr =
@@ -472,6 +434,9 @@ exprResult expr =
             e.result
 
         Literal e ->
+            e.result
+
+        Variable e ->
             e.result
 
 
@@ -489,7 +454,9 @@ getExprTokenMin expr =
 
         Literal e ->
             Just e.token.start
-
+            
+        Variable e ->
+            Just e.name.start
 
 getExprTokenMax : Expr -> Maybe Int
 getExprTokenMax expr =
@@ -505,6 +472,9 @@ getExprTokenMax expr =
 
         Literal e ->
             Just e.token.start
+
+        Variable e ->
+            Just e.name.start
 
 
 getExprTokenRange : List Token -> Expr -> List Token

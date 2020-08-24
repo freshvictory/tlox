@@ -2,6 +2,7 @@ class Interpreter {
   constructor(print, error) {
     this.print = print;
     this.error = error;
+    this.environment = new Environment();
   }
   interpret(stmts) {
     try {
@@ -14,54 +15,63 @@ class Interpreter {
   evaluateStmt(stmt) {
     switch (stmt.type) {
       case "expression":
-        Interpreter.evaluateAndRecord(stmt.expression);
+        this.evaluateAndRecord(stmt.expression);
         return;
-      case "print":
-        const val = Interpreter.evaluateAndRecord(stmt.expression);
+      case "print": {
+        const val = this.evaluateAndRecord(stmt.expression);
         this.print(val + "");
         return;
+      }
+      case "var": {
+        let val = null;
+        if (stmt.initializer) {
+          val = this.evaluateAndRecord(stmt.initializer);
+        }
+        this.environment.define(stmt.name.lexeme, val);
+        return;
+      }
     }
   }
-  static evaluateAndRecord(expr) {
-    const result = Interpreter.evaluate(expr);
+  evaluateAndRecord(expr) {
+    const result = this.evaluate(expr);
     expr.result = result;
     return result;
   }
-  static evaluate(expr) {
+  evaluate(expr) {
     switch (expr.type) {
       case "grouping":
-        return Interpreter.evaluateAndRecord(expr.expression);
+        return this.evaluateAndRecord(expr.expression);
       case "literal":
         return expr.value;
       case "unary": {
-        const right = Interpreter.evaluateAndRecord(expr.right);
+        const right = this.evaluateAndRecord(expr.right);
         switch (expr.operator.type) {
           case "MINUS":
-            Interpreter.checkNumber(expr.operator, right);
+            this.checkNumber(expr.operator, right);
             return -1 * right;
           case "BANG":
-            return !Interpreter.isTruthy(right);
+            return !this.isTruthy(right);
         }
         return null;
       }
       case "binary": {
-        const left = Interpreter.evaluateAndRecord(expr.left);
-        const right = Interpreter.evaluateAndRecord(expr.right);
+        const left = this.evaluateAndRecord(expr.left);
+        const right = this.evaluateAndRecord(expr.right);
         switch (expr.operator.type) {
           case "GREATER":
-            Interpreter.checkNumber(expr.operator, right);
+            this.checkNumber(expr.operator, right);
             return left > right;
           case "GREATER_EQUAL":
-            Interpreter.checkNumber(expr.operator, right);
+            this.checkNumber(expr.operator, right);
             return left >= right;
           case "LESS":
-            Interpreter.checkNumber(expr.operator, right);
+            this.checkNumber(expr.operator, right);
             return left < right;
           case "LESS_EQUAL":
-            Interpreter.checkNumber(expr.operator, right);
+            this.checkNumber(expr.operator, right);
             return left <= right;
           case "MINUS":
-            Interpreter.checkNumber(expr.operator, right);
+            this.checkNumber(expr.operator, right);
             return left - right;
           case "PLUS":
             if (typeof left === "number" && typeof right === "number") {
@@ -72,21 +82,24 @@ class Interpreter {
             }
             throw new RuntimeError(expr.operator, "Operands must be two numbers or two strings.");
           case "SLASH":
-            Interpreter.checkNumber(expr.operator, right);
+            this.checkNumber(expr.operator, right);
             return left / right;
           case "STAR":
-            Interpreter.checkNumber(expr.operator, right);
+            this.checkNumber(expr.operator, right);
             return left * right;
           case "EQUAL_EQUAL":
-            return Interpreter.isEqual(left, right);
+            return this.isEqual(left, right);
           case "BANG_EQUAL":
-            return !Interpreter.isEqual(left, right);
+            return !this.isEqual(left, right);
         }
         return null;
       }
+      case "variable": {
+        return this.environment.get(expr.name);
+      }
     }
   }
-  static isTruthy(value) {
+  isTruthy(value) {
     if (value === null) {
       return false;
     }
@@ -95,13 +108,13 @@ class Interpreter {
     }
     return true;
   }
-  static isEqual(a, b) {
+  isEqual(a, b) {
     if (a === null) {
       return b === null;
     }
     return a === b;
   }
-  static checkNumber(operator, left, right = 0) {
+  checkNumber(operator, left, right = 0) {
     if (typeof left === "number" && typeof right === "number") {
       return;
     }

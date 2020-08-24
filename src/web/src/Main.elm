@@ -90,7 +90,7 @@ type alias Model =
     { input : String
     , scanResult : List Token
     , scanErrors : List ScanError
-    , parseResult : List Stmt
+    , parseResult : List (Maybe Stmt)
     , parseErrors : List ParseError
     , runResult : Maybe TokenLiteral
     , runError : Maybe ParseError
@@ -161,7 +161,9 @@ update msg model =
                     )
 
         ParseResult p ->
-            case Json.Decode.decodeValue (Json.Decode.list decodeStmt) p of
+            case Json.Decode.decodeValue
+                (Json.Decode.list (Json.Decode.maybe decodeStmt)) p
+            of
                 Ok stmts ->
                     ( { model | parseResult = stmts, console = [] }
                     , run p
@@ -172,8 +174,10 @@ update msg model =
                     , Cmd.none
                     )
 
-        RunResult r ->
-            case Json.Decode.decodeValue (Json.Decode.list decodeStmt) r of
+        RunResult p ->
+            case Json.Decode.decodeValue
+                (Json.Decode.list (Json.Decode.maybe decodeStmt)) p
+            of
                 Ok l ->
                     ( { model
                         | parseResult = l
@@ -728,8 +732,14 @@ viewTokenLiteral token =
 
 
 
--- 12 * 3 == 4 - (52 / (2 - 3)) <= true
+{-
+var a = 12;
+var b = a - 2;
+var a = 6 * a;
+print a / b;
 
+12 * 3 == 4 - (52 / (2 - 3)) <= true
+-}
 
 viewParserResults : Model -> Html Msg
 viewParserResults model =
@@ -740,31 +750,72 @@ viewParserResults model =
         _ ->
             E.ol
                 [ css
-                    [ Css.textAlign Css.center
-                    , Css.fontFamily Css.monospace
-                    , Css.position Css.relative
-                    , Css.overflowX Css.auto
-                    , Css.padding (rem 0.75)
-                    , themed [ ( Css.border3 (px 2) Css.solid, .softBackground ) ]
-                    , Css.borderRadius (rem 0.5)
+                    [ Css.fontFamily Css.monospace
+                    , Css.Global.children
+                        [ Css.Global.li
+                            [ Css.Global.adjacentSiblings
+                                [ Css.Global.li
+                                    [ Css.marginTop (rem 1)
+                                    ]
+                                ]
+                            ]
+                        ]
                     ]
                 ]
                 (List.map
-                    (viewStmt model)
+                    (viewPotentialStmt model)
                     model.parseResult
                 )
+
+
+viewPotentialStmt : Model -> Maybe Stmt -> Html Msg
+viewPotentialStmt model stmt =
+    case stmt of
+        Nothing ->
+            E.text "Invalid statement."
+
+        Just s ->
+            viewStmt model s
 
 
 viewStmt : Model -> Stmt -> Html Msg
 viewStmt model stmt =
     E.li
         []
-        [ case stmt of
-            Expression expr ->
-                viewExpressionTree model expr
+        [ E.article
+            [ css
+                [ themed [ ( Css.backgroundColor, .softBackground ) ]
+                , Css.borderRadius (rem 1)
+                , Css.padding (rem 0.5)
+                ]
+            ]
+            [ E.header
+                []
+                [ E.text
+                    ( case stmt of
+                        Expression _ ->
+                            "expression"
 
-            Print expr ->
-                viewExpressionTree model expr
+                        Print _ ->
+                            "print"
+
+                        Var v ->
+                            "variable " ++ v.name.lexeme
+
+                    )
+                ]
+            , case stmt of
+                Expression expr ->
+                    viewExpressionTree model expr
+
+                Print expr ->
+                    viewExpressionTree model expr
+
+                Var v ->
+                    case v.initializer of
+                        Nothing -> E.text "nil"
+                        Just expr -> viewExpressionTree model expr
+            ]
         ]
 
 
@@ -776,8 +827,12 @@ viewExpressionTree model expr =
             , Css.fontFamily Css.monospace
             , Css.position Css.relative
             , Css.overflowX Css.auto
-            , Css.padding (rem 0.75)
-            , themed [ ( Css.border3 (px 2) Css.solid, .softBackground ) ]
+            , Css.marginTop (rem 0.5)
+            , Css.padding (rem 0.5)
+            , themed
+                [ ( Css.backgroundColor, .background )
+                , ( Css.boxShadow3 (px 3) (px 3), .shadow )
+                ]
             , Css.borderRadius (rem 0.5)
             ]
         ]
@@ -918,6 +973,11 @@ viewExpression model expr =
 
             Literal _ ->
                 E.text ""
+
+
+            Variable _ ->
+                E.text ""
+
         ]
 
 
@@ -957,9 +1017,10 @@ viewExprChar e tokens =
 
                         Grouping _ ->
                             tokenResult
+
+                        Variable _ ->
+                            tokenResult
                     )
-                , Css.position Css.absolute
-                , Css.marginLeft (rem 0.5)
                 , Css.padding (rem 0.5)
                 , Css.borderRadius (rem 0.5)
                 , themed
@@ -975,6 +1036,7 @@ viewExprChar e tokens =
                 [ Css.borderRadius (rem 0.5)
                 , Css.padding2 (rem 0.35) (rem 0.4)
                 , Css.display Css.inlineBlock
+                , Css.fontWeight Css.bold
                 ]
             ]
             (List.map

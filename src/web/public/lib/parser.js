@@ -9,9 +9,33 @@ class Parser {
   parse() {
     const stmts = [];
     while (!this.isAtEnd()) {
-      stmts.push(this.statement());
+      stmts.push(this.declaration());
     }
     return stmts;
+  }
+  declaration() {
+    try {
+      if (this.match("VAR")) {
+        return this.varDeclaration();
+      }
+      return this.statement();
+    } catch (e) {
+      this.synchronize();
+      return null;
+    }
+  }
+  varDeclaration() {
+    const name = this.consume("IDENTIFIER", "Expect variable name.");
+    let initializer = null;
+    if (this.match("EQUAL")) {
+      initializer = this.expression();
+    }
+    this.consume("SEMICOLON", "Expect `;` after variable declaration.");
+    return {
+      type: "var",
+      name,
+      initializer
+    };
   }
   statement() {
     if (this.match("PRINT")) {
@@ -181,6 +205,12 @@ class Parser {
         type: "literal",
         value: this.previous().literal,
         token: this.previous()
+      };
+    }
+    if (this.match("IDENTIFIER")) {
+      return {
+        type: "variable",
+        name: this.previous()
       };
     }
     if (this.match("LEFT_PAREN")) {
