@@ -59,19 +59,19 @@ class Interpreter {
         const right = this.evaluateAndRecord(expr.right);
         switch (expr.operator.type) {
           case "GREATER":
-            this.checkNumber(expr.operator, right);
+            this.checkNumber(expr.operator, left, right);
             return left > right;
           case "GREATER_EQUAL":
-            this.checkNumber(expr.operator, right);
+            this.checkNumber(expr.operator, left, right);
             return left >= right;
           case "LESS":
-            this.checkNumber(expr.operator, right);
+            this.checkNumber(expr.operator, left, right);
             return left < right;
           case "LESS_EQUAL":
-            this.checkNumber(expr.operator, right);
+            this.checkNumber(expr.operator, left, right);
             return left <= right;
           case "MINUS":
-            this.checkNumber(expr.operator, right);
+            this.checkNumber(expr.operator, left, right);
             return left - right;
           case "PLUS":
             if (typeof left === "number" && typeof right === "number") {
@@ -82,10 +82,10 @@ class Interpreter {
             }
             throw new RuntimeError(expr.operator, "Operands must be two numbers or two strings.");
           case "SLASH":
-            this.checkNumber(expr.operator, right);
+            this.checkNumber(expr.operator, left, right);
             return left / right;
           case "STAR":
-            this.checkNumber(expr.operator, right);
+            this.checkNumber(expr.operator, left, right);
             return left * right;
           case "EQUAL_EQUAL":
             return this.isEqual(left, right);
