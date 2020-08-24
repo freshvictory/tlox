@@ -1,18 +1,35 @@
-import type { Expr } from './parser.ts';
+import type { Expr, Stmt } from './parser.ts';
 import type { Token } from './scanner.ts';
 
 export class Interpreter {
-  public static interpret(
-    expr: Expr,
-    error: (e: RuntimeError) => void
-  ): Expr & { result?: any } {
+  constructor(
+    readonly print: (m: string) => void,
+    readonly error: (e: RuntimeError) => void
+  ) { }
+
+  public interpret(
+    stmts: Stmt[]
+  ): Stmt[] {
     try {
-      Interpreter.evaluateAndRecord(expr);
+      stmts.forEach((s) => this.evaluateStmt(s));
     } catch (e) {
-      error(e);
+      this.error(e);
     }
 
-    return expr;
+    return stmts;
+  }
+
+
+  private evaluateStmt(stmt: Stmt) {
+    switch (stmt.type) {
+      case 'expression':
+        Interpreter.evaluateAndRecord(stmt.expression);
+        return;
+      case 'print':
+        const val = Interpreter.evaluateAndRecord(stmt.expression);
+        this.print(val + '');
+        return;
+    }
   }
 
 

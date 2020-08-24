@@ -1,8 +1,6 @@
 import type { Token, TokenType } from './scanner.ts';
 
 
-// Expressions
-
 export type Expr =
   | {
     type: 'binary',
@@ -26,6 +24,17 @@ export type Expr =
     value: unknown
   };
 
+
+export type Stmt =
+  | {
+    type: 'expression',
+    expression: Expr
+  }
+  | {
+    type: 'print',
+    expression: Expr
+  };
+
 class ParseError extends Error {}
 
 class Parser {
@@ -38,12 +47,41 @@ class Parser {
     this.errorInternal = error;
   }
 
-  public parse(): Expr | null {
-    try {
-      return this.expression();
-    } catch (e) {
-      return null;
+  public parse(): Stmt[] {
+    const stmts: Stmt[] = [];
+    while (!this.isAtEnd()) {
+      stmts.push(this.statement());
     }
+
+    return stmts;
+  }
+
+  private statement(): Stmt {
+    if (this.match('PRINT')) {
+      return this.printStatement();
+    }
+
+    return this.expressionStatement();
+  }
+
+  private printStatement(): Stmt {
+    const expr = this.expression();
+    this.consume('SEMICOLON', 'Expect `;` after value.');
+
+    return {
+      type: 'print',
+      expression: expr
+    };
+  }
+
+  private expressionStatement(): Stmt {
+    const expr = this.expression();
+    this.consume('SEMICOLON', 'Expect `;` after value.');
+
+    return {
+      type: 'expression',
+      expression: expr
+    };
   }
 
   private match(...types: TokenType[]): boolean {
@@ -254,7 +292,7 @@ class Parser {
 export function parse(
   tokens: Token[],
   error: (t: Token, m: string) => void
-): Expr | null {
+): Stmt[] | null {
   return new Parser(tokens.filter(t => {
     return t.type !== 'WHITESPACE' && t.type !== 'COMMENT'
   }), error).parse();
