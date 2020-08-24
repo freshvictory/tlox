@@ -731,6 +731,9 @@ viewParserResults model =
                     , Css.fontFamily Css.monospace
                     , Css.position Css.relative
                     , Css.overflowX Css.auto
+                    , Css.padding (rem 0.75)
+                    , themed [ (Css.border3 (px 2) Css.solid, .softBackground) ]
+                    , Css.borderRadius (rem 0.5)
                     ]
                 ]
                 [ viewExpression model expr
@@ -763,7 +766,7 @@ viewExpression model expr =
                 , Css.right (pct 50)
                 , Css.width (pct 50)
                 , Css.height (rem 1.25)
-                , Css.borderTop2 (px 3) Css.solid
+                , Css.borderTop2 (px 2) Css.solid
                 ]
             , Css.after
                 [ Css.property "content" "''"
@@ -772,8 +775,8 @@ viewExpression model expr =
                 , Css.left (pct 50)
                 , Css.width (pct 50)
                 , Css.height (rem 1.25)
-                , Css.borderTop2 (px 3) Css.solid
-                , Css.borderLeft2 (px 3) Css.solid
+                , Css.borderTop2 (px 2) Css.solid
+                , Css.borderLeft2 (px 2) Css.solid
                 ]
             , Css.onlyChild
                 [ Css.before [ Css.display Css.none ]
@@ -787,7 +790,7 @@ viewExpression model expr =
             , Css.lastChild
                 [ Css.after [ Css.border Css.zero ]
                 , Css.before
-                    [ Css.borderRight2 (px 3) Css.solid
+                    [ Css.borderRight2 (px 2) Css.solid
                     , Css.borderTopRightRadius (rem 0.75)
                     ]
                 ]
@@ -823,7 +826,7 @@ viewExpression model expr =
                             , Css.position Css.absolute
                             , Css.top Css.zero
                             , Css.left (pct 50)
-                            , Css.borderLeft2 (px 3) Css.solid
+                            , Css.borderLeft2 (px 2) Css.solid
                             , Css.width Css.zero
                             , Css.height (rem 1.25)
                             ]
@@ -843,7 +846,7 @@ viewExpression model expr =
                             , Css.position Css.absolute
                             , Css.top Css.zero
                             , Css.left (pct 50)
-                            , Css.borderLeft2 (px 3) Css.solid
+                            , Css.borderLeft2 (px 2) Css.solid
                             , Css.width Css.zero
                             , Css.height (rem 1.25)
                             ]
@@ -862,7 +865,7 @@ viewExpression model expr =
                             , Css.position Css.absolute
                             , Css.top Css.zero
                             , Css.left (pct 50)
-                            , Css.borderLeft2 (px 3) Css.solid
+                            , Css.borderLeft2 (px 2) Css.solid
                             , Css.width Css.zero
                             , Css.height (rem 1.25)
                             ]
@@ -895,6 +898,7 @@ viewExprChar e tokens =
             , Css.lineHeight (Css.num 1)
             , Css.display Css.inlineBlock
             , themed [ (Css.backgroundColor, .background) ]
+            , Css.boxShadow2 (px 1) (px 1)
             , Css.marginTop (px 1)
             , Css.after
                 [ Css.property
