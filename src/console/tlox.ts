@@ -1,4 +1,4 @@
-import { parse } from '../interpreter/parser.ts';
+import { parse, Stmt } from '../interpreter/parser.ts';
 import { scanTokens } from '../interpreter/scanner.ts';
 import { Interpreter, RuntimeError } from '../interpreter/interpreter.ts';
 
@@ -21,6 +21,10 @@ async function main(args: string[]) {
 let hadError = false;
 let hadRuntimeError = false;
 
+const interpreter = new Interpreter(
+  console.log,
+  runtimeError
+);
 
 async function runFile(path: string) {
   const file = await Deno.open(path);
@@ -54,15 +58,8 @@ async function run(program: string) {
     }
   );
 
-  if (!hadError && !!expressions) {
-    const interpreter = new Interpreter(
-      console.log,
-      runtimeError
-    );
-    const expr = interpreter.interpret(expressions);
-    if (!hadRuntimeError) {
-      // console.log(expr.result);
-    }
+  if (!hadError) {
+    interpreter.interpret(expressions as Stmt[]);
   }
 }
 
