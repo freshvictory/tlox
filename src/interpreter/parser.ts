@@ -22,6 +22,10 @@ export type Expr =
     type: 'literal',
     token: Token,
     value: unknown
+  }
+  | {
+    type: 'variable',
+    name: Token
   };
 
 
@@ -33,6 +37,11 @@ export type Stmt =
   | {
     type: 'print',
     expression: Expr
+  }
+  | {
+    type: 'var',
+    name: Token,
+    initializer: Expr | null
   };
 
 class ParseError extends Error {}
@@ -47,13 +56,44 @@ class Parser {
     this.errorInternal = error;
   }
 
-  public parse(): Stmt[] {
-    const stmts: Stmt[] = [];
+  public parse(): (Stmt | null)[] {
+    const stmts: (Stmt | null)[] = [];
     while (!this.isAtEnd()) {
-      stmts.push(this.statement());
+      stmts.push(this.declaration());
     }
 
     return stmts;
+  }
+
+  private declaration(): Stmt | null {
+    try {
+      if (this.match('VAR')) {
+        return this.varDeclaration();
+      }
+
+      return this.statement();
+    } catch (e) {
+      this.synchronize();
+
+      return null;
+    }
+  }
+
+  private varDeclaration(): Stmt {
+    const name = this.consume('IDENTIFIER', 'Expect variable name.');
+
+    let initializer = null;
+    if (this.match('EQUAL')) {
+      initializer = this.expression();
+    }
+
+    this.consume('SEMICOLON', 'Expect `;` after variable declaration.');
+
+    return {
+      type: 'var',
+      name,
+      initializer
+    };
   }
 
   private statement(): Stmt {
@@ -271,6 +311,13 @@ class Parser {
       };
     }
 
+    if (this.match('IDENTIFIER')) {
+      return {
+        type: 'variable',
+        name: this.previous()
+      };
+    }
+
     if (this.match('LEFT_PAREN')) {
       const firstParen = this.previous();
 
@@ -292,7 +339,7 @@ class Parser {
 export function parse(
   tokens: Token[],
   error: (t: Token, m: string) => void
-): Stmt[] | null {
+): (Stmt | null)[] {
   return new Parser(tokens.filter(t => {
     return t.type !== 'WHITESPACE' && t.type !== 'COMMENT'
   }), error).parse();
