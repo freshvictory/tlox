@@ -3,7 +3,7 @@ import type { Token } from './scanner.ts';
 import { Environment } from './environment.ts';
 
 export class Interpreter {
-  private readonly environment = new Environment();
+  private environment = new Environment();
 
   constructor(
     readonly print: (m: string) => void,
@@ -42,6 +42,21 @@ export class Interpreter {
         this.environment.define(stmt.name.lexeme, val);
         return;
       }
+      case 'block': {
+        this.executeBlock(stmt.statements, new Environment(this.environment));
+      }
+    }
+  }
+
+
+  private executeBlock(statements: (Stmt | null)[], environment: Environment): void {
+    const previousEnvironment = this.environment;
+
+    try {
+      this.environment = environment;
+      statements.forEach((s) => s && this.evaluateStmt(s));
+    } finally {
+      this.environment = previousEnvironment;
     }
   }
 

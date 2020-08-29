@@ -30,6 +30,18 @@ class Interpreter {
         this.environment.define(stmt.name.lexeme, val);
         return;
       }
+      case "block": {
+        this.executeBlock(stmt.statements, new Environment(this.environment));
+      }
+    }
+  }
+  executeBlock(statements, environment2) {
+    const previousEnvironment = this.environment;
+    try {
+      this.environment = environment2;
+      statements.forEach((s) => s && this.evaluateStmt(s));
+    } finally {
+      this.environment = previousEnvironment;
     }
   }
   evaluateAndRecord(expr) {

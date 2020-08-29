@@ -47,6 +47,11 @@ export type Stmt =
     type: 'var',
     name: Token,
     initializer: Expr | null
+  }
+  | {
+    type: 'block',
+    tokens: Token[],
+    statements: (Stmt | null)[]
   };
 
 class ParseError extends Error {}
@@ -106,6 +111,10 @@ class Parser {
       return this.printStatement();
     }
 
+    if (this.match('LEFT_BRACE')) {
+      return this.blockStatement();
+    }
+
     return this.expressionStatement();
   }
 
@@ -117,6 +126,30 @@ class Parser {
       type: 'print',
       expression: expr
     };
+  }
+
+  private blockStatement(): Stmt {
+    const leftBrace = this.previous();
+
+    const statements = this.block();
+
+    return {
+      type: 'block',
+      tokens: [leftBrace, this.previous()],
+      statements
+    }
+  }
+
+  private block(): (Stmt | null)[] {
+    const statements: (Stmt | null)[] = [];
+
+    while (!this.check('RIGHT_BRACE') && !this.isAtEnd()) {
+      statements.push(this.declaration());
+    }
+
+    this.consume('RIGHT_BRACE', 'Expect `}` after block.');
+
+    return statements
   }
 
   private expressionStatement(): Stmt {

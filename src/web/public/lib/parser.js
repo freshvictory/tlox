@@ -41,6 +41,9 @@ class Parser {
     if (this.match("PRINT")) {
       return this.printStatement();
     }
+    if (this.match("LEFT_BRACE")) {
+      return this.blockStatement();
+    }
     return this.expressionStatement();
   }
   printStatement() {
@@ -50,6 +53,23 @@ class Parser {
       type: "print",
       expression: expr
     };
+  }
+  blockStatement() {
+    const leftBrace = this.previous();
+    const statements = this.block();
+    return {
+      type: "block",
+      tokens: [leftBrace, this.previous()],
+      statements
+    };
+  }
+  block() {
+    const statements = [];
+    while (!this.check("RIGHT_BRACE") && !this.isAtEnd()) {
+      statements.push(this.declaration());
+    }
+    this.consume("RIGHT_BRACE", "Expect `}` after block.");
+    return statements;
   }
   expressionStatement() {
     const expr = this.expression();
