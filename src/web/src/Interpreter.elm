@@ -19,11 +19,18 @@ type Stmt
     = Expression Expr
     | Print Expr
     | Var VarStmt
+    | Block BlockStmt
 
 
 type alias VarStmt =
     { name : Token
     , initializer : Maybe Expr
+    }
+
+
+type alias BlockStmt =
+    { tokens : List Token
+    , statements : List (Maybe Stmt)
     }
 
 
@@ -159,6 +166,13 @@ decodeStmtType s =
                 ( Json.Decode.map2 VarStmt
                     (field "name" decodeToken)
                     (Json.Decode.maybe (field "initializer" decodeExpr))
+                )
+
+        "block" ->
+            Json.Decode.map Block
+                ( Json.Decode.map2 BlockStmt
+                    (field "tokens" (Json.Decode.list decodeToken))
+                    (field "statements" (Json.Decode.list (Json.Decode.maybe decodeStmt)))
                 )
 
         _ ->

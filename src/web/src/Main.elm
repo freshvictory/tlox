@@ -831,24 +831,31 @@ viewParserResults model =
             E.text "No results."
 
         _ ->
-            E.ol
-                [ css
-                    [ Css.fontFamily Css.monospace
-                    , Css.Global.children
+            viewStmtList model model.parseResult
+            
+
+
+viewStmtList : Model -> List (Maybe Stmt) -> Html Msg
+viewStmtList model stmts =
+    E.ol
+        [ css
+            [ Css.fontFamily Css.monospace
+            , Css.Global.children
+                [ Css.Global.li
+                    [ Css.Global.adjacentSiblings
                         [ Css.Global.li
-                            [ Css.Global.adjacentSiblings
-                                [ Css.Global.li
-                                    [ Css.marginTop (rem 1)
-                                    ]
-                                ]
+                            [ Css.marginTop (rem 1)
                             ]
                         ]
                     ]
                 ]
-                (List.map
-                    (viewPotentialStmt model)
-                    model.parseResult
-                )
+            ]
+        ]
+        (List.map
+            (viewPotentialStmt model)
+            stmts
+        )
+
 
 
 viewPotentialStmt : Model -> Maybe Stmt -> Html Msg
@@ -884,6 +891,9 @@ viewStmt model stmt =
 
                         Var v ->
                             "variable " ++ v.name.lexeme
+
+                        Block _ ->
+                            "block"
                     )
                 ]
             , case stmt of
@@ -900,6 +910,21 @@ viewStmt model stmt =
 
                         Just expr ->
                             viewExpressionTree model expr
+
+                Block b ->
+                    E.div
+                        [ css
+                            [ Css.padding (rem 0.5)
+                            , Css.marginTop (rem 0.5)
+                            , themed
+                                [ ( Css.backgroundColor, .background )
+                                , ( Css.boxShadow3 (px 3) (px 3), .shadow )
+                                ]
+                            , Css.borderRadius (rem 0.5)
+                            ]
+                        ]
+                        [ viewStmtList model b.statements
+                        ]
             ]
         ]
 
