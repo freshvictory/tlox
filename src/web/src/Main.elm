@@ -4,11 +4,11 @@ import Browser
 import Css exposing (Style, hex, pct, px, rem)
 import Css.Global
 import Css.Media
-import Html.Styled as E exposing (Html, toUnstyled)
-import Html.Styled.Attributes exposing (css)
-import Html.Styled.Events exposing (onInput)
-import Interpreter exposing (..)
-import Json.Decode
+import Html.Styled as H exposing (Html, toUnstyled)
+import Html.Styled.Attributes as A exposing (css)
+import Html.Styled.Events as E
+import Interpreter as I exposing (Expr, ParseError, ScanError, Stmt, Token, TokenLiteral(..))
+import Json.Decode as Decode
 import List
 import String
 import Theme exposing (Theme, dark, light)
@@ -21,28 +21,28 @@ import Theme exposing (Theme, dark, light)
 port scan : String -> Cmd msg
 
 
-port scanResult : (Json.Decode.Value -> msg) -> Sub msg
+port scanResult : (Decode.Value -> msg) -> Sub msg
 
 
 port scanError : (Maybe ScanError -> msg) -> Sub msg
 
 
-port parse : Json.Decode.Value -> Cmd msg
+port parse : Decode.Value -> Cmd msg
 
 
-port parseResult : (Json.Decode.Value -> msg) -> Sub msg
+port parseResult : (Decode.Value -> msg) -> Sub msg
 
 
-port parseError : (Maybe Json.Decode.Value -> msg) -> Sub msg
+port parseError : (Maybe Decode.Value -> msg) -> Sub msg
 
 
-port run : Json.Decode.Value -> Cmd msg
+port run : Decode.Value -> Cmd msg
 
 
-port runResult : (Json.Decode.Value -> msg) -> Sub msg
+port runResult : (Decode.Value -> msg) -> Sub msg
 
 
-port runError : (Maybe Json.Decode.Value -> msg) -> Sub msg
+port runError : (Maybe Decode.Value -> msg) -> Sub msg
 
 
 port log : (String -> msg) -> Sub msg
@@ -128,12 +128,12 @@ init =
 
 type Msg
     = Input String
-    | ScanResult Json.Decode.Value
-    | ParseResult Json.Decode.Value
-    | RunResult Json.Decode.Value
+    | ScanResult Decode.Value
+    | ParseResult Decode.Value
+    | RunResult Decode.Value
     | ReportScanError (Maybe ScanError)
-    | ReportParseError (Maybe Json.Decode.Value)
-    | ReportRunError (Maybe Json.Decode.Value)
+    | ReportParseError (Maybe Decode.Value)
+    | ReportRunError (Maybe Decode.Value)
     | Hover (Maybe Token)
     | SelectExpr Expr
     | TabChange Tab
@@ -149,7 +149,7 @@ update msg model =
             )
 
         ScanResult v ->
-            case Json.Decode.decodeValue (Json.Decode.list decodeToken) v of
+            case Decode.decodeValue (Decode.list I.decodeToken) v of
                 Ok tokens ->
                     ( { model | scanResult = tokens, selectedExpr = Nothing }
                     , parse v
@@ -162,8 +162,8 @@ update msg model =
 
         ParseResult p ->
             case
-                Json.Decode.decodeValue
-                    (Json.Decode.list (Json.Decode.maybe decodeStmt))
+                Decode.decodeValue
+                    (Decode.list (Decode.maybe I.decodeStmt))
                     p
             of
                 Ok stmts ->
@@ -178,8 +178,8 @@ update msg model =
 
         RunResult p ->
             case
-                Json.Decode.decodeValue
-                    (Json.Decode.list (Json.Decode.maybe decodeStmt))
+                Decode.decodeValue
+                    (Decode.list (Decode.maybe I.decodeStmt))
                     p
             of
                 Ok l ->
@@ -214,7 +214,7 @@ update msg model =
                     )
 
                 Just e ->
-                    case Json.Decode.decodeValue decodeParseError e of
+                    case Decode.decodeValue I.decodeParseError e of
                         Ok err ->
                             ( { model
                                 | parseErrors = model.parseErrors ++ [ err ]
@@ -236,7 +236,7 @@ update msg model =
                     )
 
                 Just e ->
-                    case Json.Decode.decodeValue decodeParseError e of
+                    case Decode.decodeValue I.decodeParseError e of
                         Ok err ->
                             ( { model | runError = Just err }
                             , Cmd.none
@@ -286,7 +286,7 @@ update msg model =
 
 view : Model -> Html Msg
 view model =
-    E.div
+    H.div
         [ css
             [ themed
                 [ ( Css.backgroundColor, .background )
@@ -295,7 +295,7 @@ view model =
             , Css.property "display" "grid"
             , Css.property "grid-template-rows" "auto 1fr"
             ]
-        , Html.Styled.Attributes.id "app"
+        , A.id "app"
         ]
         [ viewHeader
         , viewBody model
@@ -304,7 +304,7 @@ view model =
 
 viewBody : Model -> Html Msg
 viewBody model =
-    E.main_
+    H.main_
         [ css
             [ Css.property "display" "grid"
             , Css.property "grid-gap" "2rem"
@@ -323,7 +323,7 @@ viewBody model =
 
 viewHeader : Html Msg
 viewHeader =
-    E.header
+    H.header
         [ css
             [ Css.displayFlex
             , Css.backgroundColor (hex "#402945")
@@ -331,18 +331,18 @@ viewHeader =
             , Css.padding (rem 1)
             ]
         ]
-        [ E.h1
+        [ H.h1
             [ css
                 [ Css.margin Css.zero
                 ]
             ]
-            [ E.text "Lox Interpreter" ]
+            [ H.text "Lox Interpreter" ]
         ]
 
 
 viewCode : Model -> Html Msg
 viewCode model =
-    E.section
+    H.section
         [ css
             [ Css.property "display" "grid"
             , Css.property "row-gap" "0.25rem"
@@ -356,7 +356,7 @@ viewCode model =
 
 viewEditor : Model -> Html Msg
 viewEditor model =
-    E.section
+    H.section
         [ css
             [ Css.borderRadius (rem 0.25)
             , Css.position Css.relative
@@ -380,7 +380,7 @@ viewLines model =
         lines =
             groupBy .line model.scanResult
     in
-    E.ol
+    H.ol
         [ css
             [ Css.property "grid-row" "1"
             , Css.property "grid-column" "1"
@@ -396,7 +396,7 @@ viewLines model =
         ]
         (List.map
             (\n ->
-                E.li
+                H.li
                     [ css
                         [ Css.fontSize (rem 0.8)
                         , Css.height (rem 1.5)
@@ -405,7 +405,7 @@ viewLines model =
                         , Css.justifyContent Css.flexEnd
                         ]
                     ]
-                    [ E.pre [] [ E.text (String.fromInt n) ] ]
+                    [ H.pre [] [ H.text (String.fromInt n) ] ]
             )
             (List.range 1 (max (List.length lines) 15))
         )
@@ -413,8 +413,8 @@ viewLines model =
 
 viewInput : Html Msg
 viewInput =
-    E.textarea
-        [ onInput Input
+    H.textarea
+        [ E.onInput Input
         , css
             [ Css.border Css.zero
             , Css.padding2 (rem 0.5) Css.zero
@@ -432,10 +432,10 @@ viewInput =
             , Css.property "grid-row" "1"
             , Css.focus [ Css.outline Css.none ]
             ]
-        , Html.Styled.Attributes.autocomplete False
-        , Html.Styled.Attributes.attribute "autocapitalize" "none"
-        , Html.Styled.Attributes.spellcheck False
-        , Html.Styled.Attributes.autofocus True
+        , A.autocomplete False
+        , A.attribute "autocapitalize" "none"
+        , A.spellcheck False
+        , A.autofocus True
         ]
         []
 
@@ -449,12 +449,12 @@ viewSource model =
         selectedTokens =
             case model.selectedExpr of
                 Just e ->
-                    getExprTokenRange model.scanResult e
+                    I.getExprTokenRange model.scanResult e
 
                 Nothing ->
                     []
     in
-    E.code
+    H.code
         [ css
             [ Css.margin2 (rem 0.5) Css.zero
             , Css.property "grid-column" "2"
@@ -470,7 +470,7 @@ viewSource model =
 
 viewSourceLine : Model -> List Token -> List Token -> Html Msg
 viewSourceLine model selected tokens =
-    E.pre
+    H.pre
         []
         (List.map
             (\t -> viewTokenSource model selected t)
@@ -489,10 +489,10 @@ viewTokenSource model selected token =
                 e :: _ ->
                     Just e
     in
-    E.span
-        [ Html.Styled.Attributes.class token.tokenTypeString
-        , Html.Styled.Attributes.class "token"
-        , Html.Styled.Attributes.class
+    H.span
+        [ A.class token.tokenTypeString
+        , A.class "token"
+        , A.class
             (case model.hover of
                 Just t ->
                     if t == token then
@@ -504,7 +504,7 @@ viewTokenSource model selected token =
                 _ ->
                     ""
             )
-        , Html.Styled.Attributes.class
+        , A.class
             (if List.member token selected then
                 "selected"
 
@@ -516,8 +516,8 @@ viewTokenSource model selected token =
             , Css.position Css.relative
             ]
         ]
-        [ E.text
-            (if token.tokenType == EOF then
+        [ H.text
+            (if token.tokenType == I.EOF then
                 " "
 
              else
@@ -525,7 +525,7 @@ viewTokenSource model selected token =
             )
         , case error of
             Nothing ->
-                E.text ""
+                H.text ""
 
             Just e ->
                 viewTokenError e
@@ -543,7 +543,7 @@ viewTokenError error =
                 ]
             ]
     in
-    E.span
+    H.span
         [ css
             [ Css.position Css.absolute
             , Css.pointerEventsAll
@@ -555,30 +555,30 @@ viewTokenError error =
             , Css.bottom Css.zero
             , Css.borderBottom3 (px 2) Css.dotted (hex "FF0000")
             ]
-        , Html.Styled.Attributes.tabindex 0
+        , A.tabindex 0
         ]
-        [ E.div
+        [ H.div
             [ css
                 [ Css.display Css.none
                 , Css.paddingTop (rem 1)
                 ]
             ]
-            [ E.article
+            [ H.article
                 [ css
                     [ Css.borderRadius (rem 0.5)
                     , Css.border3 (px 2) Css.solid (hex "FF0000")
                     ]
                 ]
-                [ E.header
+                [ H.header
                     [ css
                         [ Css.backgroundColor (hex "FF0000")
                         , Css.color (hex "FFF")
                         , Css.padding (rem 0.5)
                         ]
                     ]
-                    [ E.h1
+                    [ H.h1
                         []
-                        [ E.text error.message
+                        [ H.text error.message
                         ]
                     ]
                 ]
@@ -588,14 +588,14 @@ viewTokenError error =
 
 viewResults : Model -> Html Msg
 viewResults model =
-    E.section
+    H.section
         [ css
             [ Css.property "display" "grid"
             , Css.property "row-gap" "0.5rem"
             , Css.property "grid-auto-rows" "max-content"
             ]
         ]
-        [ E.div
+        [ H.div
             [ css
                 [ Css.displayFlex
                 , Css.justifyContent Css.center
@@ -619,7 +619,7 @@ viewResults model =
 
 viewTabRadio : Model -> String -> String -> Tab -> Html Msg
 viewTabRadio model id label tab =
-    E.label
+    H.label
         [ css
             [ Css.lineHeight (Css.num 1)
             , Css.padding (rem 0.5)
@@ -644,20 +644,20 @@ viewTabRadio model id label tab =
               else
                 Css.batch []
             ]
-        , Html.Styled.Attributes.for ("result-" ++ id)
+        , A.for ("result-" ++ id)
         ]
-        [ E.input
-            [ Html.Styled.Attributes.type_ "radio"
-            , Html.Styled.Attributes.name "result"
-            , Html.Styled.Attributes.id ("result-" ++ id)
-            , Html.Styled.Events.on
+        [ H.input
+            [ A.type_ "radio"
+            , A.name "result"
+            , A.id ("result-" ++ id)
+            , E.on
                 "change"
-                (Json.Decode.succeed (TabChange tab))
-            , Html.Styled.Attributes.checked (model.tab == tab)
+                (Decode.succeed (TabChange tab))
+            , A.checked (model.tab == tab)
             , css [ Css.display Css.none ]
             ]
             []
-        , E.text label
+        , H.text label
         ]
 
 
@@ -669,15 +669,15 @@ viewTokens model =
                 |> List.filter
                     (\t ->
                         t.tokenType
-                            /= WHITESPACE
+                            /= I.WHITESPACE
                             && t.tokenType
-                            /= EOF
+                            /= I.EOF
                             && t.tokenType
-                            /= UNEXPECTED
+                            /= I.UNEXPECTED
                     )
                 |> groupBy .line
     in
-    E.ol
+    H.ol
         [ css
             [ Css.property "display" "grid"
             , themed [ ( Css.boxShadow4 Css.zero Css.zero (px 10), .shadow ) ]
@@ -695,7 +695,7 @@ viewTokens model =
                             Just t ->
                                 t.line
                 in
-                E.li
+                H.li
                     [ css
                         [ Css.property "display" "grid"
                         , Css.property "row-gap" "0.5rem"
@@ -721,13 +721,13 @@ viewTokens model =
                             ]
                         ]
                     ]
-                    [ E.span
+                    [ H.span
                         [ css
                             [ Css.lineHeight (Css.num 1)
                             , Css.fontFamily Css.monospace
                             ]
                         ]
-                        [ E.text (String.fromInt lineNumber) ]
+                        [ H.text (String.fromInt lineNumber) ]
                     , viewLine line
                     ]
             )
@@ -737,7 +737,7 @@ viewTokens model =
 
 viewLine : List Token -> Html Msg
 viewLine tokens =
-    E.ol
+    H.ol
         [ css
             [ Css.displayFlex
             , Css.flexWrap Css.wrap
@@ -745,26 +745,26 @@ viewLine tokens =
         ]
         (List.map
             (\t ->
-                E.li
+                H.li
                     [ css
                         [ Css.marginRight (rem 0.5)
                         , Css.lastChild [ Css.marginRight Css.zero ]
                         , Css.marginBottom (rem 0.5)
                         ]
-                    , Html.Styled.Events.onMouseOver (Hover (Just t))
-                    , Html.Styled.Events.onMouseLeave (Hover Nothing)
+                    , E.onMouseOver (Hover (Just t))
+                    , E.onMouseLeave (Hover Nothing)
                     ]
                     [ case t.tokenType of
-                        IDENTIFIER ->
+                        I.IDENTIFIER ->
                             viewTokenLiteral t
 
-                        NUMBER ->
+                        I.NUMBER ->
                             viewTokenLiteral t
 
-                        STRING ->
+                        I.STRING ->
                             viewTokenLiteral t
 
-                        COMMENT ->
+                        I.COMMENT ->
                             viewTokenLiteral t
 
                         _ ->
@@ -777,7 +777,7 @@ viewLine tokens =
 
 viewToken : Token -> Html Msg
 viewToken token =
-    E.pre
+    H.pre
         [ css
             [ Css.maxWidth Css.maxContent
             , Css.display Css.inlineFlex
@@ -789,13 +789,13 @@ viewToken token =
             , Css.margin Css.zero
             ]
         ]
-        [ E.text token.tokenTypeString
+        [ H.text token.tokenTypeString
         ]
 
 
 viewTokenLiteral : Token -> Html Msg
 viewTokenLiteral token =
-    E.pre
+    H.pre
         [ css
             [ Css.maxWidth Css.maxContent
             , Css.display Css.inlineFlex
@@ -809,7 +809,7 @@ viewTokenLiteral token =
             , Css.margin Css.zero
             ]
         ]
-        [ E.text token.lexeme
+        [ H.text token.lexeme
         ]
 
 
@@ -828,16 +828,15 @@ viewParserResults : Model -> Html Msg
 viewParserResults model =
     case model.parseResult of
         [] ->
-            E.text "No results."
+            H.text "No results."
 
         _ ->
             viewStmtList model model.parseResult
-            
 
 
 viewStmtList : Model -> List (Maybe Stmt) -> Html Msg
 viewStmtList model stmts =
-    E.ol
+    H.ol
         [ css
             [ Css.fontFamily Css.monospace
             , Css.Global.children
@@ -857,12 +856,11 @@ viewStmtList model stmts =
         )
 
 
-
 viewPotentialStmt : Model -> Maybe Stmt -> Html Msg
 viewPotentialStmt model stmt =
     case stmt of
         Nothing ->
-            E.text "Invalid statement."
+            H.text "Invalid statement."
 
         Just s ->
             viewStmt model s
@@ -870,49 +868,49 @@ viewPotentialStmt model stmt =
 
 viewStmt : Model -> Stmt -> Html Msg
 viewStmt model stmt =
-    E.li
+    H.li
         []
-        [ E.article
+        [ H.article
             [ css
                 [ themed [ ( Css.backgroundColor, .softBackground ) ]
                 , Css.borderRadius (rem 1)
                 , Css.padding (rem 0.5)
                 ]
             ]
-            [ E.header
+            [ H.header
                 []
-                [ E.text
+                [ H.text
                     (case stmt of
-                        Expression _ ->
+                        I.Expression _ ->
                             "expression"
 
-                        Print _ ->
+                        I.Print _ ->
                             "print"
 
-                        Var v ->
+                        I.Var v ->
                             "variable " ++ v.name.lexeme
 
-                        Block _ ->
+                        I.Block _ ->
                             "block"
                     )
                 ]
             , case stmt of
-                Expression expr ->
+                I.Expression expr ->
                     viewExpressionTree model expr
 
-                Print expr ->
+                I.Print expr ->
                     viewExpressionTree model expr
 
-                Var v ->
+                I.Var v ->
                     case v.initializer of
                         Nothing ->
-                            E.text "nil"
+                            H.text "nil"
 
                         Just expr ->
                             viewExpressionTree model expr
 
-                Block b ->
-                    E.div
+                I.Block b ->
+                    H.div
                         [ css
                             [ Css.padding (rem 0.5)
                             , Css.marginTop (rem 0.5)
@@ -931,7 +929,7 @@ viewStmt model stmt =
 
 viewExpressionTree : Model -> Expr -> Html Msg
 viewExpressionTree model expr =
-    E.ol
+    H.ol
         [ css
             [ Css.textAlign Css.center
             , Css.fontFamily Css.monospace
@@ -958,9 +956,9 @@ viewExpression : Model -> Expr -> Html Msg
 viewExpression model expr =
     let
         tokens =
-            exprToken expr
+            I.exprToken expr
     in
-    E.li
+    H.li
         [ css
             [ Css.float Css.left
             , Css.padding4 (rem 1.25) (rem 0.25) Css.zero (rem 0.25)
@@ -1023,8 +1021,8 @@ viewExpression model expr =
         ]
         [ viewExprChar expr tokens
         , case expr of
-            Binary b ->
-                E.ol
+            I.Binary b ->
+                H.ol
                     [ css
                         [ Css.position Css.relative
                         , Css.paddingTop (rem 1.25)
@@ -1043,8 +1041,8 @@ viewExpression model expr =
                     , viewExpression model b.right
                     ]
 
-            Unary u ->
-                E.ol
+            I.Unary u ->
+                H.ol
                     [ css
                         [ Css.position Css.relative
                         , Css.paddingTop (rem 1.25)
@@ -1062,8 +1060,8 @@ viewExpression model expr =
                     [ viewExpression model u.right
                     ]
 
-            Grouping g ->
-                E.ol
+            I.Grouping g ->
+                H.ol
                     [ css
                         [ Css.position Css.relative
                         , Css.paddingTop (rem 1.25)
@@ -1081,14 +1079,14 @@ viewExpression model expr =
                     [ viewExpression model g.expression
                     ]
 
-            Literal _ ->
-                E.text ""
+            I.Literal _ ->
+                H.text ""
 
-            Variable _ ->
-                E.text ""
+            I.Variable _ ->
+                H.text ""
 
-            Assignment a ->
-                E.ol
+            I.Assignment a ->
+                H.ol
                     [ css
                         [ Css.position Css.relative
                         , Css.paddingTop (rem 1.25)
@@ -1112,14 +1110,14 @@ viewExprChar : Expr -> List Token -> Html Msg
 viewExprChar e tokens =
     let
         tokenResult =
-            case exprResult e of
+            case I.exprResult e of
                 Nothing ->
                     ""
 
                 Just l ->
-                    "'" ++ tokenLiteralString l ++ "'"
+                    "'" ++ I.tokenLiteralString l ++ "'"
     in
-    E.button
+    H.button
         [ css
             [ Css.border2 (px 2) Css.solid
             , Css.borderRadius (rem 0.5)
@@ -1133,22 +1131,22 @@ viewExprChar e tokens =
                 [ Css.property
                     "content"
                     (case e of
-                        Literal _ ->
+                        I.Literal _ ->
                             ""
 
-                        Binary _ ->
+                        I.Binary _ ->
                             tokenResult
 
-                        Unary _ ->
+                        I.Unary _ ->
                             tokenResult
 
-                        Grouping _ ->
+                        I.Grouping _ ->
                             tokenResult
 
-                        Variable _ ->
+                        I.Variable _ ->
                             tokenResult
 
-                        Assignment _ ->
+                        I.Assignment _ ->
                             tokenResult
                     )
                 , Css.padding (rem 0.5)
@@ -1159,9 +1157,9 @@ viewExprChar e tokens =
                     ]
                 ]
             ]
-        , Html.Styled.Events.onClick (SelectExpr e)
+        , E.onClick (SelectExpr e)
         ]
-        [ E.span
+        [ H.span
             [ css
                 [ Css.borderRadius (rem 0.5)
                 , Css.padding2 (rem 0.35) (rem 0.4)
@@ -1171,16 +1169,16 @@ viewExprChar e tokens =
             ]
             (List.map
                 (\t ->
-                    E.span
+                    H.span
                         [ css
                             [ Css.display Css.inlineBlock
                             ]
-                        , Html.Styled.Attributes.class "token"
-                        , Html.Styled.Attributes.class t.tokenTypeString
-                        , Html.Styled.Events.onMouseOver (Hover (Just t))
-                        , Html.Styled.Events.onMouseLeave (Hover Nothing)
+                        , A.class "token"
+                        , A.class t.tokenTypeString
+                        , E.onMouseOver (Hover (Just t))
+                        , E.onMouseLeave (Hover Nothing)
                         ]
-                        [ E.text t.lexeme
+                        [ H.text t.lexeme
                         ]
                 )
                 tokens
@@ -1190,13 +1188,13 @@ viewExprChar e tokens =
 
 viewRunResults : Model -> Html Msg
 viewRunResults model =
-    E.code
+    H.code
         []
         (List.map
             (\m ->
-                E.pre
+                H.pre
                     []
-                    [ E.text m
+                    [ H.text m
                     ]
             )
             model.console
@@ -1207,23 +1205,23 @@ viewError : Model -> Html Msg
 viewError model =
     case model.scanErrors of
         [] ->
-            E.text ""
+            H.text ""
 
         errors ->
-            E.pre
+            H.pre
                 []
-                [ E.ol
+                [ H.ol
                     []
                     (List.map
                         (\e ->
-                            E.li
+                            H.li
                                 []
-                                [ E.text
+                                [ H.text
                                     ("Error on line "
                                         ++ String.fromInt e.line
                                         ++ ":\n"
                                     )
-                                , E.text e.message
+                                , H.text e.message
                                 ]
                         )
                         errors
