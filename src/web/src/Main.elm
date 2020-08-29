@@ -436,6 +436,7 @@ viewInput =
         , A.attribute "autocapitalize" "none"
         , A.spellcheck False
         , A.autofocus True
+        , A.id "code-input"
         ]
         []
 

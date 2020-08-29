@@ -1,10 +1,13 @@
 import './main.css';
 import './code.css';
 import { Elm } from './Main.elm';
+import buildEditor from './editor';
 
 const app = Elm.Main.init({
   node: document.getElementById('root')
 });
+
+buildEditor();
 
 const scannerWorker = new Worker('scanner-worker.js');
 scannerWorker.onmessage = ({ data }) => {
@@ -43,9 +46,9 @@ interpreterWorker.onmessage = ({ data }) => {
   if (error) {
     app.ports.runError.send(error);
   }
-}
+};
 
 app.ports.run.subscribe(function (e) {
   app.ports.runError.send(null);
   interpreterWorker.postMessage(e);
-})
+});
