@@ -502,7 +502,7 @@ getExprTokenMax expr =
             Just e.name.start
 
         Assignment e ->
-            Just e.name.start
+            getExprTokenMax e.value
 
 
 getExprTokenRange : List Token -> Expr -> List Token

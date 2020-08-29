@@ -161,22 +161,26 @@ update msg model =
                     )
 
         ParseResult p ->
-            case Json.Decode.decodeValue
-                (Json.Decode.list (Json.Decode.maybe decodeStmt)) p
+            case
+                Json.Decode.decodeValue
+                    (Json.Decode.list (Json.Decode.maybe decodeStmt))
+                    p
             of
                 Ok stmts ->
                     ( { model | parseResult = stmts, console = [] }
                     , run p
                     )
 
-                Err e ->
+                Err _ ->
                     ( { model | parseResult = [] }
                     , Cmd.none
                     )
 
         RunResult p ->
-            case Json.Decode.decodeValue
-                (Json.Decode.list (Json.Decode.maybe decodeStmt)) p
+            case
+                Json.Decode.decodeValue
+                    (Json.Decode.list (Json.Decode.maybe decodeStmt))
+                    p
             of
                 Ok l ->
                     ( { model
@@ -467,8 +471,7 @@ viewSource model =
 viewSourceLine : Model -> List Token -> List Token -> Html Msg
 viewSourceLine model selected tokens =
     E.pre
-        [ css [ Css.display Css.inline ]
-        ]
+        []
         (List.map
             (\t -> viewTokenSource model selected t)
             tokens
@@ -477,6 +480,15 @@ viewSourceLine model selected tokens =
 
 viewTokenSource : Model -> List Token -> Token -> Html Msg
 viewTokenSource model selected token =
+    let
+        error =
+            case List.filter (\e -> e.token == token) model.parseErrors of
+                [] ->
+                    Nothing
+
+                e :: _ ->
+                    Just e
+    in
     E.span
         [ Html.Styled.Attributes.class token.tokenTypeString
         , Html.Styled.Attributes.class "token"
@@ -499,8 +511,78 @@ viewTokenSource model selected token =
              else
                 ""
             )
+        , css
+            [ Css.display Css.inlineBlock
+            , Css.position Css.relative
+            ]
         ]
-        [ E.text token.lexeme
+        [ E.text
+            (if token.tokenType == EOF then
+                " "
+
+             else
+                token.lexeme
+            )
+        , case error of
+            Nothing ->
+                E.text ""
+
+            Just e ->
+                viewTokenError e
+        ]
+
+
+viewTokenError : ParseError -> Html Msg
+viewTokenError error =
+    let
+        revealError =
+            [ Css.Global.children
+                [ Css.Global.div
+                    [ Css.display Css.inlineBlock
+                    ]
+                ]
+            ]
+    in
+    E.span
+        [ css
+            [ Css.position Css.absolute
+            , Css.pointerEventsAll
+            , Css.hover revealError
+            , Css.focus revealError
+            , Css.width (pct 100)
+            , Css.height (rem 0.5)
+            , Css.left Css.zero
+            , Css.bottom Css.zero
+            , Css.borderBottom3 (px 2) Css.dotted (hex "FF0000")
+            ]
+        , Html.Styled.Attributes.tabindex 0
+        ]
+        [ E.div
+            [ css
+                [ Css.display Css.none
+                , Css.paddingTop (rem 1)
+                ]
+            ]
+            [ E.article
+                [ css
+                    [ Css.borderRadius (rem 0.5)
+                    , Css.border3 (px 2) Css.solid (hex "FF0000")
+                    ]
+                ]
+                [ E.header
+                    [ css
+                        [ Css.backgroundColor (hex "FF0000")
+                        , Css.color (hex "FFF")
+                        , Css.padding (rem 0.5)
+                        ]
+                    ]
+                    [ E.h1
+                        []
+                        [ E.text error.message
+                        ]
+                    ]
+                ]
+            ]
         ]
 
 
@@ -733,13 +815,14 @@ viewTokenLiteral token =
 
 
 {-
-var a = 12;
-var b = a - 2;
-var a = 6 * a;
-print a / b;
+   var a = 12;
+   var b = a - 2;
+   var a = 6 * a;
+   print a / b;
 
-12 * 3 == 4 - (52 / (2 - 3)) <= true
+   12 * 3 == 4 - (52 / (2 - 3)) <= true
 -}
+
 
 viewParserResults : Model -> Html Msg
 viewParserResults model =
@@ -792,7 +875,7 @@ viewStmt model stmt =
             [ E.header
                 []
                 [ E.text
-                    ( case stmt of
+                    (case stmt of
                         Expression _ ->
                             "expression"
 
@@ -801,7 +884,6 @@ viewStmt model stmt =
 
                         Var v ->
                             "variable " ++ v.name.lexeme
-
                     )
                 ]
             , case stmt of
@@ -813,8 +895,11 @@ viewStmt model stmt =
 
                 Var v ->
                     case v.initializer of
-                        Nothing -> E.text "nil"
-                        Just expr -> viewExpressionTree model expr
+                        Nothing ->
+                            E.text "nil"
+
+                        Just expr ->
+                            viewExpressionTree model expr
             ]
         ]
 
@@ -974,7 +1059,6 @@ viewExpression model expr =
             Literal _ ->
                 E.text ""
 
-
             Variable _ ->
                 E.text ""
 
@@ -996,8 +1080,6 @@ viewExpression model expr =
                     ]
                     [ viewExpression model a.value
                     ]
-
-
         ]
 
 

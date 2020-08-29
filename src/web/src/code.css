@@ -4,6 +4,10 @@
   color: var(--t-color);
 }
 
+.token:active {
+  pointer-events: none;
+}
+
 @media (prefers-color-scheme: light) {
   .IDENTIFIER {
     --t-color: #c27e0f;
@@ -32,7 +36,7 @@
   }
 
   .hover {
-    background-color: #a8ff05;
+    background-color: #fbff05;
   }
 
   .selected {
@@ -68,7 +72,7 @@
   }
 
   .hover {
-    background-color: #005500;
+    background-color: #7e7023;
   }
 
   .selected {

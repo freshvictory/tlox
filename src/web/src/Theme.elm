@@ -28,7 +28,7 @@ light =
 dark : Theme
 dark =
   { purple = "402945"
-  , background = "000"
+  , background = "0f0f0f"
   , softBackground = "1f1f1f"
   , softText = "999"
   , contrastBackground = "4f4c5c"
