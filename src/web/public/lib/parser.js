@@ -25,16 +25,20 @@ class Parser {
     }
   }
   varDeclaration() {
+    const tokens = [];
+    tokens.push(this.previous());
     const name = this.consume("IDENTIFIER", "Expect variable name.");
     let initializer = null;
     if (this.match("EQUAL")) {
+      tokens.push(this.previous());
       initializer = this.expression();
     }
-    this.consume("SEMICOLON", "Expect `;` after variable declaration.");
+    tokens.push(this.consume("SEMICOLON", "Expect `;` after variable declaration."));
     return {
       type: "var",
       name,
-      initializer
+      initializer,
+      tokens
     };
   }
   statement() {
@@ -50,27 +54,34 @@ class Parser {
     return this.expressionStatement();
   }
   ifStatement() {
-    this.consume("LEFT_PAREN", "Expect `(` after `if`.");
+    const tokens = [];
+    tokens.push(this.previous());
+    tokens.push(this.consume("LEFT_PAREN", "Expect `(` after `if`."));
     const condition = this.expression();
-    this.consume("RIGHT_PAREN", "Expect `)` after if condition.");
+    tokens.push(this.consume("RIGHT_PAREN", "Expect `)` after if condition."));
     const thenBranch = this.statement();
     let elseBranch = null;
     if (this.match("ELSE")) {
+      tokens.push(this.previous());
       elseBranch = this.statement();
     }
     return {
       type: "if",
       condition,
       thenBranch,
-      elseBranch
+      elseBranch,
+      tokens
     };
   }
   printStatement() {
+    const tokens = [];
+    tokens.push(this.previous());
     const expr = this.expression();
-    this.consume("SEMICOLON", "Expect `;` after value.");
+    tokens.push(this.consume("SEMICOLON", "Expect `;` after value."));
     return {
       type: "print",
-      expression: expr
+      expression: expr,
+      tokens
     };
   }
   blockStatement() {
@@ -92,10 +103,11 @@ class Parser {
   }
   expressionStatement() {
     const expr = this.expression();
-    this.consume("SEMICOLON", "Expect `;` after value.");
+    const semi = this.consume("SEMICOLON", "Expect `;` after value.");
     return {
       type: "expression",
-      expression: expr
+      expression: expr,
+      tokens: [semi]
     };
   }
   match(...types) {

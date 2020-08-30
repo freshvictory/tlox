@@ -60,7 +60,7 @@ textarea, input {
   background: transparent;
 }
 
-h1 {
+h1, p {
   margin: 0;
 }
 

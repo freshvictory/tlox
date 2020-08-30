@@ -1,6 +1,6 @@
 module Interpreter exposing (..)
 
-import Json.Decode exposing (Decoder, field)
+import Json.Decode exposing (Decoder, field, list)
 
 
 type alias ScanError =
@@ -16,16 +16,29 @@ type alias ParseError =
 
 
 type Stmt
-    = Expression Expr
-    | Print Expr
+    = Expression ExpressionStmt
+    | Print PrintStmt
     | Var VarStmt
     | Block BlockStmt
     | If IfStmt
 
 
+type alias ExpressionStmt =
+    { expression : RunExpr
+    , tokens : List Token
+    }
+
+
+type alias PrintStmt =
+    { expression : RunExpr
+    , tokens : List Token
+    }
+
+
 type alias VarStmt =
     { name : Token
-    , initializer : Maybe Expr
+    , initializer : Maybe RunExpr
+    , tokens : List Token
     }
 
 
@@ -36,9 +49,16 @@ type alias BlockStmt =
 
 
 type alias IfStmt =
-    { condition : Expr
+    { condition : RunExpr
     , thenBranch : Stmt
     , elseBranch : Maybe Stmt
+    , tokens : List Token
+    }
+
+
+type alias RunExpr =
+    { expression : Expr
+    , result : Maybe TokenLiteral
     }
 
 
@@ -53,52 +73,45 @@ type Expr
 
 
 type alias BinaryExpr =
-    { left : Expr
-    , right : Expr
+    { left : RunExpr
+    , right : RunExpr
     , operator : Token
-    , result : Maybe TokenLiteral
     }
 
 
 type alias UnaryExpr =
     { operator : Token
-    , right : Expr
-    , result : Maybe TokenLiteral
+    , right : RunExpr
     }
 
 
 type alias GroupingExpr =
-    { expression : Expr
+    { expression : RunExpr
     , tokens : List Token
-    , result : Maybe TokenLiteral
     }
 
 
 type alias LiteralExpr =
     { value : TokenLiteral
     , token : Token
-    , result : Maybe TokenLiteral
     }
 
 
 type alias VariableExpr =
     { name : Token
-    , result : Maybe TokenLiteral
     }
 
 
 type alias AssignmentExpr =
     { name : Token
-    , value : Expr
-    , result : Maybe TokenLiteral
+    , value : RunExpr
     }
 
 
 type alias LogicalExpr =
     { operator : Token
-    , left : Expr
-    , right : Expr
-    , result : Maybe TokenLiteral
+    , left : RunExpr
+    , right : RunExpr
     }
 
 
@@ -174,35 +187,52 @@ decodeStmtType : String -> Decoder Stmt
 decodeStmtType s =
     case s of
         "expression" ->
-            Json.Decode.map Expression (field "expression" decodeExpr)
+            Json.Decode.map Expression
+                (Json.Decode.map2 ExpressionStmt
+                    (field "expression" decodeRunExpr)
+                    (field "tokens" (list decodeToken))
+                )
 
         "print" ->
-            Json.Decode.map Print (field "expression" decodeExpr)
+            Json.Decode.map Print
+                (Json.Decode.map2 PrintStmt
+                    (field "expression" decodeRunExpr)
+                    (field "tokens" (list decodeToken))
+                )
 
         "var" ->
             Json.Decode.map Var
-                (Json.Decode.map2 VarStmt
+                (Json.Decode.map3 VarStmt
                     (field "name" decodeToken)
-                    (Json.Decode.maybe (field "initializer" decodeExpr))
+                    (Json.Decode.maybe (field "initializer" decodeRunExpr))
+                    (field "tokens" (list decodeToken))
                 )
 
         "block" ->
             Json.Decode.map Block
                 (Json.Decode.map2 BlockStmt
-                    (field "tokens" (Json.Decode.list decodeToken))
-                    (field "statements" (Json.Decode.list (Json.Decode.maybe decodeStmt)))
+                    (field "tokens" (list decodeToken))
+                    (field "statements" (list (Json.Decode.maybe decodeStmt)))
                 )
 
         "if" ->
             Json.Decode.map If
-                (Json.Decode.map3 IfStmt
-                    (field "condition" decodeExpr)
+                (Json.Decode.map4 IfStmt
+                    (field "condition" decodeRunExpr)
                     (field "thenBranch" decodeStmt)
                     (Json.Decode.maybe (field "elseBranch" decodeStmt))
+                    (field "tokens" (list decodeToken))
                 )
 
         _ ->
             Json.Decode.fail ("Unknown stmt type: " ++ s)
+
+
+decodeRunExpr : Decoder RunExpr
+decodeRunExpr =
+    Json.Decode.map2 RunExpr
+        decodeExpr
+        (Json.Decode.maybe (field "result" decodeTokenLiteral))
 
 
 decodeExpr : Decoder Expr
@@ -216,59 +246,52 @@ decodeExprType s =
     case s of
         "binary" ->
             Json.Decode.map Binary
-                (Json.Decode.map4 BinaryExpr
-                    (field "left" decodeExpr)
-                    (field "right" decodeExpr)
+                (Json.Decode.map3 BinaryExpr
+                    (field "left" decodeRunExpr)
+                    (field "right" decodeRunExpr)
                     (field "operator" decodeToken)
-                    (Json.Decode.maybe (field "result" decodeTokenLiteral))
                 )
 
         "unary" ->
             Json.Decode.map Unary
-                (Json.Decode.map3 UnaryExpr
+                (Json.Decode.map2 UnaryExpr
                     (field "operator" decodeToken)
-                    (field "right" decodeExpr)
-                    (Json.Decode.maybe (field "result" decodeTokenLiteral))
+                    (field "right" decodeRunExpr)
                 )
 
         "grouping" ->
             Json.Decode.map Grouping
-                (Json.Decode.map3 GroupingExpr
-                    (field "expression" decodeExpr)
-                    (field "tokens" (Json.Decode.list decodeToken))
-                    (Json.Decode.maybe (field "result" decodeTokenLiteral))
+                (Json.Decode.map2 GroupingExpr
+                    (field "expression" decodeRunExpr)
+                    (field "tokens" (list decodeToken))
                 )
 
         "literal" ->
             Json.Decode.map Literal
-                (Json.Decode.map3 LiteralExpr
+                (Json.Decode.map2 LiteralExpr
                     (field "value" decodeTokenLiteral)
                     (field "token" decodeToken)
-                    (Json.Decode.maybe (field "result" decodeTokenLiteral))
                 )
 
         "variable" ->
             Json.Decode.map Variable
-                (Json.Decode.map2 VariableExpr
+                (Json.Decode.map VariableExpr
                     (field "name" decodeToken)
-                    (Json.Decode.maybe (field "result" decodeTokenLiteral))
                 )
 
         "assignment" ->
             Json.Decode.map Assignment
-                (Json.Decode.map3 AssignmentExpr
+                (Json.Decode.map2 AssignmentExpr
                     (field "name" decodeToken)
-                    (field "value" decodeExpr)
-                    (Json.Decode.maybe (field "result" decodeTokenLiteral))
+                    (field "value" decodeRunExpr)
                 )
 
         "logical" ->
             Json.Decode.map Logical
-                (Json.Decode.map4 LogicalExpr
+                (Json.Decode.map3 LogicalExpr
                     (field "operator" decodeToken)
-                    (field "left" decodeExpr)
-                    (field "right" decodeExpr)
-                    (Json.Decode.maybe (field "result" decodeTokenLiteral))
+                    (field "left" decodeRunExpr)
+                    (field "right" decodeRunExpr)
                 )
 
         _ ->
@@ -490,34 +513,9 @@ exprToken expr =
             [ e.operator ]
 
 
-exprResult : Expr -> Maybe TokenLiteral
-exprResult expr =
-    case expr of
-        Binary e ->
-            e.result
-
-        Unary e ->
-            e.result
-
-        Grouping e ->
-            e.result
-
-        Literal e ->
-            e.result
-
-        Variable e ->
-            e.result
-
-        Assignment e ->
-            e.result
-
-        Logical e ->
-            e.result
-
-
-getExprTokenMin : Expr -> Maybe Int
+getExprTokenMin : RunExpr -> Maybe Int
 getExprTokenMin expr =
-    case expr of
+    case expr.expression of
         Binary e ->
             getExprTokenMin e.left
 
@@ -540,9 +538,9 @@ getExprTokenMin expr =
             getExprTokenMin e.left
 
 
-getExprTokenMax : Expr -> Maybe Int
+getExprTokenMax : RunExpr -> Maybe Int
 getExprTokenMax expr =
-    case expr of
+    case expr.expression of
         Binary e ->
             getExprTokenMax e.right
 
@@ -565,12 +563,15 @@ getExprTokenMax expr =
             getExprTokenMax e.right
 
 
-getExprTokenRange : List Token -> Expr -> List Token
+getExprTokenRange : List Token -> RunExpr -> List Token
 getExprTokenRange full expr =
-    let
-        ( min, max ) =
-            ( getExprTokenMin expr, getExprTokenMax expr )
-    in
+    getTokenRange
+        ( getExprTokenMin expr, getExprTokenMax expr )
+        full
+
+
+getTokenRange : ( Maybe Int, Maybe Int ) -> List Token -> List Token
+getTokenRange ( min, max ) full =
     List.filter
         (\t ->
             t.start
@@ -578,4 +579,54 @@ getExprTokenRange full expr =
                 && t.start
                 <= Maybe.withDefault t.start max
         )
+        full
+
+
+getStmtTokenMin : Stmt -> Maybe Int
+getStmtTokenMin stmt =
+    case stmt of
+        Expression e ->
+            getExprTokenMin e.expression
+
+        Print p ->
+            getExprTokenMin p.expression
+
+        Block b ->
+            Maybe.map .start (List.head b.tokens)
+
+        If i ->
+            Maybe.map .start (List.head i.tokens)
+
+        Var v ->
+            Maybe.map .start (List.head v.tokens)
+
+
+getStmtTokenMax : Stmt -> Maybe Int
+getStmtTokenMax stmt =
+    case stmt of
+        Expression e ->
+            Maybe.map .start (List.head (List.reverse e.tokens))
+
+        Print p ->
+            Maybe.map .start (List.head (List.reverse p.tokens))
+
+        Block b ->
+            Maybe.map .start (List.head (List.reverse b.tokens))
+
+        If i ->
+            case i.elseBranch of
+                Nothing ->
+                    getStmtTokenMax i.thenBranch
+
+                Just e ->
+                    getStmtTokenMax e
+
+        Var v ->
+            Maybe.map .start (List.head (List.reverse v.tokens))
+
+
+getStmtTokenRange : List Token -> Stmt -> List Token
+getStmtTokenRange full stmt =
+    getTokenRange
+        ( getStmtTokenMin stmt, getStmtTokenMax stmt )
         full

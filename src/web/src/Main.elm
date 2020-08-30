@@ -7,7 +7,7 @@ import Css.Media
 import Html.Styled as H exposing (Html, toUnstyled)
 import Html.Styled.Attributes as A exposing (css)
 import Html.Styled.Events as E
-import Interpreter as I exposing (Expr, ParseError, ScanError, Stmt, Token, TokenLiteral(..))
+import Interpreter as I exposing (ParseError, RunExpr, ScanError, Stmt, Token, TokenLiteral(..))
 import Json.Decode as Decode
 import List
 import String
@@ -86,6 +86,36 @@ type Tab
     | Run
 
 
+type Selected
+    = Expression RunExpr
+    | Statement Stmt
+
+
+isSelected : Selected -> Model -> Bool
+isSelected select model =
+    case model.selected of
+        Nothing ->
+            False
+
+        Just modelSelected ->
+            case select of
+                Expression e ->
+                    case modelSelected of
+                        Expression expr ->
+                            e == expr
+
+                        _ ->
+                            False
+
+                Statement s ->
+                    case modelSelected of
+                        Statement stmt ->
+                            s == stmt
+
+                        _ ->
+                            False
+
+
 type alias Model =
     { input : String
     , scanResult : List Token
@@ -96,7 +126,8 @@ type alias Model =
     , runError : Maybe ParseError
     , console : List String
     , hover : Maybe Token
-    , selectedExpr : Maybe Expr
+    , selected : Maybe Selected
+    , expanded : List Stmt
     , tab : Tab
     }
 
@@ -112,8 +143,9 @@ defaultModel =
     , runError = Nothing
     , console = []
     , hover = Nothing
-    , selectedExpr = Nothing
-    , tab = Run
+    , selected = Nothing
+    , expanded = []
+    , tab = Parser
     }
 
 
@@ -135,7 +167,9 @@ type Msg
     | ReportParseError (Maybe Decode.Value)
     | ReportRunError (Maybe Decode.Value)
     | Hover (Maybe Token)
-    | SelectExpr Expr
+    | SelectExpr RunExpr
+    | SelectStmt Stmt
+    | ToggleExpand Stmt
     | TabChange Tab
     | Log String
 
@@ -151,7 +185,7 @@ update msg model =
         ScanResult v ->
             case Decode.decodeValue (Decode.list I.decodeToken) v of
                 Ok tokens ->
-                    ( { model | scanResult = tokens, selectedExpr = Nothing }
+                    ( { model | scanResult = tokens, selected = Nothing }
                     , parse v
                     )
 
@@ -171,7 +205,7 @@ update msg model =
                     , run p
                     )
 
-                Err _ ->
+                Err e ->
                     ( { model | parseResult = [] }
                     , Cmd.none
                     )
@@ -254,17 +288,36 @@ update msg model =
 
         SelectExpr e ->
             ( { model
-                | selectedExpr =
-                    case model.selectedExpr of
-                        Just expr ->
-                            if expr == e then
-                                Nothing
+                | selected =
+                    if isSelected (Expression e) model then
+                        Nothing
 
-                            else
-                                Just e
+                    else
+                        Just (Expression e)
+              }
+            , Cmd.none
+            )
 
-                        Nothing ->
-                            Just e
+        SelectStmt stmt ->
+            ( { model
+                | selected =
+                    if isSelected (Statement stmt) model then
+                        Nothing
+
+                    else
+                        Just (Statement stmt)
+              }
+            , Cmd.none
+            )
+
+        ToggleExpand stmt ->
+            ( { model
+                | expanded =
+                    if List.member stmt model.expanded then
+                        List.filter (\s -> s /= stmt) model.expanded
+
+                    else
+                        stmt :: model.expanded
               }
             , Cmd.none
             )
@@ -369,8 +422,8 @@ viewEditor model =
             ]
         ]
         [ viewLines model
-        , viewInput
         , viewSource model
+        , viewInput
         ]
 
 
@@ -431,6 +484,7 @@ viewInput =
             , Css.property "grid-column" "2"
             , Css.property "grid-row" "1"
             , Css.focus [ Css.outline Css.none ]
+            , Css.position Css.relative
             ]
         , A.autocomplete False
         , A.attribute "autocapitalize" "none"
@@ -448,9 +502,14 @@ viewSource model =
             groupBy .line model.scanResult
 
         selectedTokens =
-            case model.selectedExpr of
-                Just e ->
-                    I.getExprTokenRange model.scanResult e
+            case model.selected of
+                Just s ->
+                    case s of
+                        Expression e ->
+                            I.getExprTokenRange model.scanResult e
+
+                        Statement stmt ->
+                            I.getStmtTokenRange model.scanResult stmt
 
                 Nothing ->
                     []
@@ -817,11 +876,16 @@ viewTokenLiteral token =
 
 {-
    var a = 12;
-   var b = a - 2;
-   var a = 6 * a;
+   var b = 3 * a;
+   a = 6 * a;
+   var c;
+   c = 12 * 3 == a - (52 / (2 - b));
    print a / b;
-
-   12 * 3 == 4 - (52 / (2 - 3)) <= true;
+   if (b < a) {
+     print "b is bigger";
+   } else {
+     print "a is bigger";
+   }
 -}
 
 
@@ -844,7 +908,7 @@ viewStmtList model stmts =
                 [ Css.Global.li
                     [ Css.Global.adjacentSiblings
                         [ Css.Global.li
-                            [ Css.marginTop (rem 1)
+                            [ Css.marginTop (rem 1.5)
                             ]
                         ]
                     ]
@@ -869,96 +933,298 @@ viewPotentialStmt model stmt =
 
 viewStmt : Model -> Stmt -> Html Msg
 viewStmt model stmt =
+    let
+        stmtView =
+            case stmt of
+                I.Var v ->
+                    viewVariableStmt model v
+
+                I.Expression e ->
+                    viewExpressionStmt model e
+
+                I.Print p ->
+                    viewPrintStmt model p
+
+                I.Block b ->
+                    viewBlockStmt model b
+
+                I.If i ->
+                    viewIfStmt model i
+
+        expanded =
+            List.member stmt model.expanded
+    in
     H.li
         []
         [ H.article
-            [ css
-                [ themed [ ( Css.backgroundColor, .softBackground ) ]
-                , Css.borderRadius (rem 1)
-                , Css.padding (rem 0.5)
-                ]
-            ]
+            []
             [ H.header
-                []
-                [ H.text
-                    (case stmt of
-                        I.Expression _ ->
-                            "expression"
+                [ css
+                    [ Css.lineHeight (Css.num 1)
+                    , Css.padding2 (rem 1) (rem 0.5)
+                    , Css.borderRadius (rem 1)
+                    , Css.displayFlex
+                    , Css.alignItems Css.baseline
+                    , themed
+                        [ ( Css.backgroundColor
+                          , if isSelected (Statement stmt) model then
+                                .highlight
 
-                        I.Print _ ->
-                            "print"
-
-                        I.Var v ->
-                            "variable " ++ v.name.lexeme
-
-                        I.Block _ ->
-                            "block"
-
-                        I.If _ ->
-                            "if"
-                    )
+                            else
+                                .softBackground
+                          )
+                        ]
+                    ]
                 ]
-            , case stmt of
-                I.Expression expr ->
-                    viewExpressionTree model expr
+                (List.concat
+                    [ [ case stmtView.body of
+                            Nothing ->
+                                H.text ""
 
-                I.Print expr ->
-                    viewExpressionTree model expr
+                            _ ->
+                                H.label
+                                    [ css
+                                        [ Css.marginRight (rem 0.5)
+                                        , Css.fontSize Css.larger
+                                        , Css.fontWeight Css.bold
+                                        , Css.cursor Css.pointer
+                                        ]
+                                    ]
+                                    [ H.input
+                                        [ A.type_ "checkbox"
+                                        , A.checked expanded
+                                        , E.onClick (ToggleExpand stmt)
+                                        , css
+                                            [ Css.display Css.none
+                                            ]
+                                        ]
+                                        []
+                                    , H.text
+                                        (if expanded then
+                                            "-"
 
-                I.Var v ->
-                    case v.initializer of
-                        Nothing ->
-                            H.text "nil"
-
-                        Just expr ->
-                            viewExpressionTree model expr
-
-                I.Block b ->
-                    H.div
-                        [ css
-                            [ Css.padding (rem 0.5)
-                            , Css.marginTop (rem 0.5)
-                            , themed
-                                [ ( Css.backgroundColor, .background )
-                                , ( Css.boxShadow3 (px 3) (px 3), .shadow )
+                                         else
+                                            "+"
+                                        )
+                                    ]
+                      , H.div
+                            [ css
+                                [ Css.marginRight (rem 0.5)
                                 ]
-                            , Css.borderRadius (rem 0.5)
+                            ]
+                            [ H.input
+                                [ A.type_ "radio"
+                                , A.name "statements"
+                                , A.checked (isSelected (Statement stmt) model)
+                                , E.onClick (SelectStmt stmt)
+                                ]
+                                []
+                            ]
+                      ]
+                    , stmtView.header
+                    ]
+                )
+            , case stmtView.body of
+                Nothing ->
+                    H.text ""
+
+                Just b ->
+                    H.section
+                        [ css
+                            [ themed
+                                [ ( Css.border3 (px 2) Css.solid, .softBackground )
+                                ]
+                            , Css.borderRadius (rem 1)
+                            , Css.overflow Css.hidden
+                            , Css.padding (rem 0.5)
+                            , Css.marginTop (rem 0.5)
+                            , if expanded then
+                                Css.display Css.block
+
+                              else
+                                Css.display Css.none
                             ]
                         ]
-                        [ viewStmtList model b.statements
+                        [ b
                         ]
-
-                I.If i ->
-                    H.ol
-                        []
-                        (List.map
-                            (\el ->
-                                H.li
-                                    []
-                                    [ el ]
-                            )
-                            [ viewExpressionTree model i.condition
-                            , viewStmt model i.thenBranch
-                            , case i.elseBranch of
-                                Nothing ->
-                                    H.text ""
-
-                                Just e ->
-                                    viewStmt model e
-                            ]
-                        )
             ]
         ]
 
 
-viewExpressionTree : Model -> Expr -> Html Msg
+type alias StmtView =
+    { header : List (Html Msg)
+    , body : Maybe (Html Msg)
+    }
+
+
+viewVariableStmt : Model -> I.VarStmt -> StmtView
+viewVariableStmt model stmt =
+    { header =
+        [ H.h1
+            [ css
+                [ Css.display Css.inlineBlock
+                ]
+            , A.class "token"
+            , A.class stmt.name.tokenTypeString
+            ]
+            [ H.text stmt.name.lexeme
+            ]
+        , H.p
+            []
+            [ H.text
+                (case stmt.initializer of
+                    Nothing ->
+                        ": nil"
+
+                    Just expr ->
+                        case expr.result of
+                            Nothing ->
+                                ""
+
+                            Just l ->
+                                ": " ++ I.tokenLiteralString l
+                )
+            ]
+        , H.p
+            [ css
+                [ Css.fontStyle Css.italic
+                , Css.display Css.inlineBlock
+                , Css.fontSize Css.smaller
+                , Css.marginLeft Css.auto
+                , themed [ ( Css.color, .softText ) ]
+                ]
+            ]
+            [ H.text "declaration"
+            ]
+        ]
+    , body = Maybe.map (viewExpressionTree model) stmt.initializer
+    }
+
+
+viewExpressionStmt : Model -> I.ExpressionStmt -> StmtView
+viewExpressionStmt model stmt =
+    { header =
+        [ H.h1
+            [ css
+                [ Css.fontSize (rem 1)
+                ]
+            ]
+            [ H.text "expression"
+            ]
+        , H.p
+            []
+            [ case stmt.expression.result of
+                Nothing ->
+                    H.text ": ?"
+
+                Just l ->
+                    H.text (": " ++ I.tokenLiteralString l)
+            ]
+        ]
+    , body = Just (viewExpressionTree model stmt.expression)
+    }
+
+
+viewBlockStmt : Model -> I.BlockStmt -> StmtView
+viewBlockStmt model block =
+    { header =
+        [ H.h1
+            [ css
+                [ Css.fontSize (rem 1)
+                ]
+            ]
+            [ H.text "block"
+            ]
+        ]
+    , body = Just (viewStmtList model block.statements)
+    }
+
+
+viewIfStmt : Model -> I.IfStmt -> StmtView
+viewIfStmt model stmt =
+    { header =
+        [ H.h1
+            [ css
+                [ Css.fontSize (rem 1)
+                ]
+            , A.class "token"
+            , A.class "IF"
+            ]
+            [ H.text "if"
+            ]
+        , H.p
+            []
+            [ case stmt.condition.result of
+                Nothing ->
+                    H.text ": ?"
+
+                Just l ->
+                    H.text (": " ++ I.tokenLiteralString l)
+            ]
+        ]
+    , body =
+        Just
+            (H.div
+                []
+                [ H.div
+                    []
+                    [ H.text "condition"
+                    , viewExpressionTree model stmt.condition
+                    ]
+                , H.div
+                    []
+                    [ H.text "then"
+                    , viewStmt model stmt.thenBranch
+                    ]
+                , case stmt.elseBranch of
+                    Nothing ->
+                        H.text ""
+
+                    Just e ->
+                        H.div
+                            []
+                            [ H.text "else"
+                            , viewStmt model e
+                            ]
+                ]
+            )
+    }
+
+
+viewPrintStmt : Model -> I.PrintStmt -> StmtView
+viewPrintStmt model stmt =
+    { header =
+        [ H.h1
+            [ A.class "token"
+            , A.class "PRINT"
+            , css
+                [ Css.fontSize (rem 1)
+                ]
+            ]
+            [ H.text "print"
+            ]
+        , H.p
+            []
+            [ case stmt.expression.result of
+                Nothing ->
+                    H.text ": ?"
+
+                Just l ->
+                    H.text (": " ++ I.tokenLiteralString l)
+            ]
+        ]
+    , body = Just (viewExpressionTree model stmt.expression)
+    }
+
+
+viewExpressionTree : Model -> RunExpr -> Html Msg
 viewExpressionTree model expr =
     H.ol
         [ css
             [ Css.borderRadius (rem 0.5)
             , Css.padding (rem 0.5)
             , Css.overflowX Css.auto
-            , themed [ (Css.backgroundColor, .background) ]
+            , themed [ ( Css.backgroundColor, .background ) ]
             ]
         , A.class "tree"
         ]
@@ -970,31 +1236,36 @@ viewExpressionTree model expr =
 -- Tree styling adapted from https://codepen.io/Avaneesh/pen/QWwNrBX
 
 
-viewExpression : Model -> Expr -> Html Msg
+viewExpression : Model -> RunExpr -> Html Msg
 viewExpression model expr =
     let
         tokens =
-            I.exprToken expr
+            I.exprToken expr.expression
     in
     H.li
         [ css
-            (case model.selectedExpr of
-                Just e ->
-                    if expr == e then
-                        [ Css.Global.descendants
-                            [ Css.Global.button
-                                [ Css.Global.children
-                                    [ Css.Global.span
-                                        [ themed
-                                            [ ( Css.backgroundColor, .highlight ) ]
+            (case model.selected of
+                Just s ->
+                    case s of
+                        Expression e ->
+                            if expr == e then
+                                [ Css.Global.descendants
+                                    [ Css.Global.button
+                                        [ Css.Global.children
+                                            [ Css.Global.span
+                                                [ themed
+                                                    [ ( Css.backgroundColor, .highlight ) ]
+                                                ]
+                                            ]
                                         ]
                                     ]
                                 ]
-                            ]
-                        ]
 
-                    else
-                        []
+                            else
+                                []
+
+                        _ ->
+                            []
 
                 Nothing ->
                     []
@@ -1002,7 +1273,7 @@ viewExpression model expr =
         , A.class "leaf"
         ]
         [ viewExprChar expr tokens
-        , case expr of
+        , case expr.expression of
             I.Binary b ->
                 H.ol
                     [ A.class "tree"
@@ -1048,21 +1319,8 @@ viewExpression model expr =
         ]
 
 
-viewExprChar : Expr -> List Token -> Html Msg
+viewExprChar : RunExpr -> List Token -> Html Msg
 viewExprChar e tokens =
-    let
-        tokenResult =
-            case I.exprResult e of
-                Nothing ->
-                    "?"
-
-                Just l ->
-                    I.tokenLiteralString l
-        tokenLexeme =
-            String.join
-                ""
-                (List.map .lexeme tokens)
-    in
     H.button
         [ css
             [ Css.lineHeight (Css.num 1)
@@ -1080,8 +1338,8 @@ viewExprChar e tokens =
                 , Css.position Css.relative
                 , Css.zIndex (Css.int 1)
                 , themed
-                    [ (Css.border3 (px 2) Css.solid, .text)
-                    , (Css.backgroundColor, .background)
+                    [ ( Css.border3 (px 2) Css.solid, .text )
+                    , ( Css.backgroundColor, .background )
                     ]
                 ]
             ]
@@ -1102,9 +1360,26 @@ viewExprChar e tokens =
                 )
                 tokens
             )
-        , if tokenLexeme == tokenResult then
+        , viewExprResult e
+        ]
+
+
+viewExprResult : RunExpr -> Html Msg
+viewExprResult expr =
+    let
+        tokenResult =
+            case expr.result of
+                Nothing ->
+                    "?"
+
+                Just l ->
+                    I.tokenLiteralString l
+    in
+    case expr.expression of
+        I.Literal _ ->
             H.text ""
-        else
+
+        _ ->
             H.span
                 [ css
                     [ themed
@@ -1118,11 +1393,11 @@ viewExprChar e tokens =
                     , Css.borderTopRightRadius (rem 2)
                     , Css.borderBottomRightRadius (rem 2)
                     , Css.margin2 (px 2) Css.zero
+                    , Css.whiteSpace Css.noWrap
                     ]
                 ]
                 [ H.text tokenResult
                 ]
-        ]
 
 
 viewRunResults : Model -> Html Msg

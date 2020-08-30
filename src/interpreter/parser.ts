@@ -43,14 +43,17 @@ export type Expr =
 export type Stmt =
   | {
     type: 'expression',
+    tokens: Token[],
     expression: Expr
   }
   | {
     type: 'print',
+    tokens: Token[],
     expression: Expr
   }
   | {
     type: 'var',
+    tokens: Token[],
     name: Token,
     initializer: Expr | null
   }
@@ -61,6 +64,7 @@ export type Stmt =
   }
   | {
     type: 'if',
+    tokens: Token[],
     condition: Expr,
     thenBranch: Stmt,
     elseBranch: Stmt | null
@@ -102,19 +106,25 @@ class Parser {
   }
 
   private varDeclaration(): Stmt {
+    const tokens: Token[] = [];
+    tokens.push(this.previous());
     const name = this.consume('IDENTIFIER', 'Expect variable name.');
 
     let initializer = null;
     if (this.match('EQUAL')) {
+      tokens.push(this.previous());
       initializer = this.expression();
     }
 
-    this.consume('SEMICOLON', 'Expect `;` after variable declaration.');
+    tokens.push(
+      this.consume('SEMICOLON', 'Expect `;` after variable declaration.')
+    );
 
     return {
       type: 'var',
       name,
-      initializer
+      initializer,
+      tokens
     };
   }
 
@@ -135,13 +145,16 @@ class Parser {
   }
 
   private ifStatement(): Stmt {
-    this.consume('LEFT_PAREN', "Expect `(` after `if`.");
+    const tokens: Token[] = [];
+    tokens.push(this.previous());
+    tokens.push(this.consume('LEFT_PAREN', "Expect `(` after `if`."));
     const condition = this.expression();
-    this.consume('RIGHT_PAREN', "Expect `)` after if condition.");
+    tokens.push(this.consume('RIGHT_PAREN', "Expect `)` after if condition."));
 
     const thenBranch = this.statement();
     let elseBranch = null;
     if (this.match('ELSE')) {
+      tokens.push(this.previous());
       elseBranch = this.statement();
     }
 
@@ -149,17 +162,21 @@ class Parser {
       type: 'if',
       condition,
       thenBranch,
-      elseBranch
+      elseBranch,
+      tokens
     };
   }
 
   private printStatement(): Stmt {
+    const tokens: Token[] = [];
+    tokens.push(this.previous());
     const expr = this.expression();
-    this.consume('SEMICOLON', 'Expect `;` after value.');
+    tokens.push(this.consume('SEMICOLON', 'Expect `;` after value.'));
 
     return {
       type: 'print',
-      expression: expr
+      expression: expr,
+      tokens
     };
   }
 
@@ -189,11 +206,12 @@ class Parser {
 
   private expressionStatement(): Stmt {
     const expr = this.expression();
-    this.consume('SEMICOLON', 'Expect `;` after value.');
+    const semi = this.consume('SEMICOLON', 'Expect `;` after value.');
 
     return {
       type: 'expression',
-      expression: expr
+      expression: expr,
+      tokens: [semi]
     };
   }
 

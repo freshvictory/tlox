@@ -9,7 +9,7 @@ const app = Elm.Main.init({
   node: document.getElementById('root')
 });
 
-buildEditor();
+// buildEditor();
 
 const scannerWorker = new Worker('scanner-worker.js');
 scannerWorker.onmessage = ({ data }) => {
