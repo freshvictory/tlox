@@ -1,0 +1,23 @@
+:root {
+  --background: #fff;
+  --soft-background: #eee;
+  --medium-background: #ccc;
+  --soft-text: #555;
+  --contrast-background: #cbc8d6;
+  --shadow: #ddd;
+  --text: #333;
+  --highlight: #d0f2fe;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #111;
+    --soft-background: #222;
+    --medium-background: #444;
+    --soft-text: #999;
+    --contrast-background: #4f4c5c;
+    --shadow: #000;
+    --text: #eee;
+    --highlight: #204a62;
+  }
+}

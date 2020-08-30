@@ -1,5 +1,7 @@
 import './main.css';
+import './theme.css';
 import './code.css';
+import './tree.css';
 import { Elm } from './Main.elm';
 import buildEditor from './editor';
 

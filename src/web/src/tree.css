@@ -1,0 +1,73 @@
+/* Adapted from https://codepen.io/Avaneesh/pen/QWwNrBX */
+
+.tree {
+  text-align: center;
+  font-family: monospace;
+  position: relative;
+
+  --border: 2px solid;
+  --radius: 0.75rem;
+}
+
+.leaf {
+  float: left;
+  padding: 1.25rem 0.25rem 0 0.25rem;
+  position: relative;
+  min-width: max-content;
+}
+
+.leaf::before,
+.leaf::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  width: 50%;
+  height: 1.25rem;
+  border-top: var(--border);
+}
+
+.leaf::before {
+  right: 50%;
+}
+
+.leaf::after {
+  left: 50%;
+  border-left: var(--border);
+}
+
+.leaf:only-child {
+  padding-top: 0;
+}
+
+.leaf:only-child::before,
+.leaf:only-child::after {
+  display: none;
+}
+
+.leaf:first-child::before,
+.leaf:last-child::after {
+  border: 0;
+}
+
+.leaf:first-child::after {
+  border-top-left-radius: var(--radius);
+}
+
+.leaf:last-child::before {
+  border-right: var(--border);
+  border-top-right-radius: var(--radius);
+}
+
+.leaf > .tree {
+  padding-top: 1.25rem;
+}
+
+.leaf > .tree::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 0;
+  height: 1.25rem;
+  border-left: var(--border);
+}

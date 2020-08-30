@@ -821,7 +821,7 @@ viewTokenLiteral token =
    var a = 6 * a;
    print a / b;
 
-   12 * 3 == 4 - (52 / (2 - 3)) <= true
+   12 * 3 == 4 - (52 / (2 - 3)) <= true;
 -}
 
 
@@ -955,18 +955,12 @@ viewExpressionTree : Model -> Expr -> Html Msg
 viewExpressionTree model expr =
     H.ol
         [ css
-            [ Css.textAlign Css.center
-            , Css.fontFamily Css.monospace
-            , Css.position Css.relative
-            , Css.overflowX Css.auto
-            , Css.marginTop (rem 0.5)
+            [ Css.borderRadius (rem 0.5)
             , Css.padding (rem 0.5)
-            , themed
-                [ ( Css.backgroundColor, .background )
-                , ( Css.boxShadow3 (px 3) (px 3), .shadow )
-                ]
-            , Css.borderRadius (rem 0.5)
+            , Css.overflowX Css.auto
+            , themed [ (Css.backgroundColor, .background) ]
             ]
+        , A.class "tree"
         ]
         [ viewExpression model expr
         ]
@@ -984,82 +978,34 @@ viewExpression model expr =
     in
     H.li
         [ css
-            [ Css.float Css.left
-            , Css.padding4 (rem 1.25) (rem 0.25) Css.zero (rem 0.25)
-            , Css.position Css.relative
-            , Css.minWidth Css.maxContent
-            , Css.before
-                [ Css.property "content" "''"
-                , Css.position Css.absolute
-                , Css.top Css.zero
-                , Css.right (pct 50)
-                , Css.width (pct 50)
-                , Css.height (rem 1.25)
-                , Css.borderTop2 (px 2) Css.solid
-                ]
-            , Css.after
-                [ Css.property "content" "''"
-                , Css.position Css.absolute
-                , Css.top Css.zero
-                , Css.left (pct 50)
-                , Css.width (pct 50)
-                , Css.height (rem 1.25)
-                , Css.borderTop2 (px 2) Css.solid
-                , Css.borderLeft2 (px 2) Css.solid
-                ]
-            , Css.onlyChild
-                [ Css.before [ Css.display Css.none ]
-                , Css.after [ Css.display Css.none ]
-                , Css.paddingTop Css.zero
-                ]
-            , Css.firstChild
-                [ Css.before [ Css.border Css.zero ]
-                , Css.after [ Css.borderTopLeftRadius (rem 0.75) ]
-                ]
-            , Css.lastChild
-                [ Css.after [ Css.border Css.zero ]
-                , Css.before
-                    [ Css.borderRight2 (px 2) Css.solid
-                    , Css.borderTopRightRadius (rem 0.75)
-                    ]
-                ]
-            , Css.batch
-                (case model.selectedExpr of
-                    Just e ->
-                        if expr == e then
-                            [ Css.Global.descendants
-                                [ Css.Global.button
-                                    [ themed
-                                        [ ( Css.backgroundColor, .highlight ) ]
+            (case model.selectedExpr of
+                Just e ->
+                    if expr == e then
+                        [ Css.Global.descendants
+                            [ Css.Global.button
+                                [ Css.Global.children
+                                    [ Css.Global.span
+                                        [ themed
+                                            [ ( Css.backgroundColor, .highlight ) ]
+                                        ]
                                     ]
                                 ]
                             ]
+                        ]
 
-                        else
-                            []
-
-                    Nothing ->
+                    else
                         []
-                )
-            ]
+
+                Nothing ->
+                    []
+            )
+        , A.class "leaf"
         ]
         [ viewExprChar expr tokens
         , case expr of
             I.Binary b ->
                 H.ol
-                    [ css
-                        [ Css.position Css.relative
-                        , Css.paddingTop (rem 1.25)
-                        , Css.before
-                            [ Css.property "content" "''"
-                            , Css.position Css.absolute
-                            , Css.top Css.zero
-                            , Css.left (pct 50)
-                            , Css.borderLeft2 (px 2) Css.solid
-                            , Css.width Css.zero
-                            , Css.height (rem 1.25)
-                            ]
-                        ]
+                    [ A.class "tree"
                     ]
                     [ viewExpression model b.left
                     , viewExpression model b.right
@@ -1067,38 +1013,14 @@ viewExpression model expr =
 
             I.Unary u ->
                 H.ol
-                    [ css
-                        [ Css.position Css.relative
-                        , Css.paddingTop (rem 1.25)
-                        , Css.before
-                            [ Css.property "content" "''"
-                            , Css.position Css.absolute
-                            , Css.top Css.zero
-                            , Css.left (pct 50)
-                            , Css.borderLeft2 (px 2) Css.solid
-                            , Css.width Css.zero
-                            , Css.height (rem 1.25)
-                            ]
-                        ]
+                    [ A.class "tree"
                     ]
                     [ viewExpression model u.right
                     ]
 
             I.Grouping g ->
                 H.ol
-                    [ css
-                        [ Css.position Css.relative
-                        , Css.paddingTop (rem 1.25)
-                        , Css.before
-                            [ Css.property "content" "''"
-                            , Css.position Css.absolute
-                            , Css.top Css.zero
-                            , Css.left (pct 50)
-                            , Css.borderLeft2 (px 2) Css.solid
-                            , Css.width Css.zero
-                            , Css.height (rem 1.25)
-                            ]
-                        ]
+                    [ A.class "tree"
                     ]
                     [ viewExpression model g.expression
                     ]
@@ -1111,38 +1033,14 @@ viewExpression model expr =
 
             I.Assignment a ->
                 H.ol
-                    [ css
-                        [ Css.position Css.relative
-                        , Css.paddingTop (rem 1.25)
-                        , Css.before
-                            [ Css.property "content" "''"
-                            , Css.position Css.absolute
-                            , Css.top Css.zero
-                            , Css.left (pct 50)
-                            , Css.borderLeft2 (px 2) Css.solid
-                            , Css.width Css.zero
-                            , Css.height (rem 1.25)
-                            ]
-                        ]
+                    [ A.class "tree"
                     ]
                     [ viewExpression model a.value
                     ]
 
             I.Logical l ->
                 H.ol
-                    [ css
-                        [ Css.position Css.relative
-                        , Css.paddingTop (rem 1.25)
-                        , Css.before
-                            [ Css.property "content" "''"
-                            , Css.position Css.absolute
-                            , Css.top Css.zero
-                            , Css.left (pct 50)
-                            , Css.borderLeft2 (px 2) Css.solid
-                            , Css.width Css.zero
-                            , Css.height (rem 1.25)
-                            ]
-                        ]
+                    [ A.class "tree"
                     ]
                     [ viewExpression model l.left
                     , viewExpression model l.right
@@ -1156,62 +1054,35 @@ viewExprChar e tokens =
         tokenResult =
             case I.exprResult e of
                 Nothing ->
-                    ""
+                    "?"
 
                 Just l ->
-                    "'" ++ I.tokenLiteralString l ++ "'"
+                    I.tokenLiteralString l
+        tokenLexeme =
+            String.join
+                ""
+                (List.map .lexeme tokens)
     in
     H.button
         [ css
-            [ Css.border2 (px 2) Css.solid
-            , Css.borderRadius (rem 0.5)
-            , Css.maxWidth Css.maxContent
-            , Css.lineHeight (Css.num 1)
-            , Css.display Css.inlineBlock
-            , themed [ ( Css.backgroundColor, .background ) ]
-            , Css.boxShadow2 (px 1) (px 1)
-            , Css.marginTop (px 1)
-            , Css.after
-                [ Css.property
-                    "content"
-                    (case e of
-                        I.Literal _ ->
-                            ""
-
-                        I.Binary _ ->
-                            tokenResult
-
-                        I.Unary _ ->
-                            tokenResult
-
-                        I.Grouping _ ->
-                            tokenResult
-
-                        I.Variable _ ->
-                            tokenResult
-
-                        I.Assignment _ ->
-                            tokenResult
-
-                        I.Logical _ ->
-                            tokenResult
-                    )
-                , Css.padding (rem 0.5)
-                , Css.borderRadius (rem 0.5)
-                , themed
-                    [ ( Css.backgroundColor, .softBackground )
-                    , ( Css.color, .softText )
-                    ]
-                ]
+            [ Css.lineHeight (Css.num 1)
+            , Css.position Css.relative
+            , Css.borderRadius (rem 2)
             ]
         , E.onClick (SelectExpr e)
         ]
         [ H.span
             [ css
-                [ Css.borderRadius (rem 0.5)
-                , Css.padding2 (rem 0.35) (rem 0.4)
-                , Css.display Css.inlineBlock
+                [ Css.display Css.inlineBlock
                 , Css.fontWeight Css.bold
+                , Css.padding (rem 0.5)
+                , Css.borderRadius (rem 2)
+                , Css.position Css.relative
+                , Css.zIndex (Css.int 1)
+                , themed
+                    [ (Css.border3 (px 2) Css.solid, .text)
+                    , (Css.backgroundColor, .background)
+                    ]
                 ]
             ]
             (List.map
@@ -1219,6 +1090,7 @@ viewExprChar e tokens =
                     H.span
                         [ css
                             [ Css.display Css.inlineBlock
+                            , Css.minWidth (rem 1)
                             ]
                         , A.class "token"
                         , A.class t.tokenTypeString
@@ -1230,6 +1102,26 @@ viewExprChar e tokens =
                 )
                 tokens
             )
+        , if tokenLexeme == tokenResult then
+            H.text ""
+        else
+            H.span
+                [ css
+                    [ themed
+                        [ ( Css.backgroundColor, .contrastBackground )
+                        ]
+                    , Css.padding (rem 0.5)
+                    , Css.paddingLeft (rem 1.25)
+                    , Css.left (Css.calc (pct 100) Css.minus (rem 1))
+                    , Css.position Css.absolute
+                    , Css.display Css.inlineBlock
+                    , Css.borderTopRightRadius (rem 2)
+                    , Css.borderBottomRightRadius (rem 2)
+                    , Css.margin2 (px 2) Css.zero
+                    ]
+                ]
+                [ H.text tokenResult
+                ]
         ]
 
 
