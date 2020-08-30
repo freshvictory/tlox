@@ -38,6 +38,9 @@ class Parser {
     };
   }
   statement() {
+    if (this.match("IF")) {
+      return this.ifStatement();
+    }
     if (this.match("PRINT")) {
       return this.printStatement();
     }
@@ -45,6 +48,22 @@ class Parser {
       return this.blockStatement();
     }
     return this.expressionStatement();
+  }
+  ifStatement() {
+    this.consume("LEFT_PAREN", "Expect `(` after `if`.");
+    const condition = this.expression();
+    this.consume("RIGHT_PAREN", "Expect `)` after if condition.");
+    const thenBranch = this.statement();
+    let elseBranch = null;
+    if (this.match("ELSE")) {
+      elseBranch = this.statement();
+    }
+    return {
+      type: "if",
+      condition,
+      thenBranch,
+      elseBranch
+    };
   }
   printStatement() {
     const expr = this.expression();
@@ -143,7 +162,7 @@ class Parser {
     return this.assignment();
   }
   assignment() {
-    const expr = this.equality();
+    const expr = this.or();
     if (this.match("EQUAL")) {
       const equals = this.previous();
       const value = this.assignment();
@@ -156,6 +175,34 @@ class Parser {
         };
       }
       this.error(equals, "Invalid assignment target.");
+    }
+    return expr;
+  }
+  or() {
+    let expr = this.and();
+    while (this.match("OR")) {
+      const operator = this.previous();
+      const right = this.and();
+      expr = {
+        type: "logical",
+        left: expr,
+        operator,
+        right
+      };
+    }
+    return expr;
+  }
+  and() {
+    let expr = this.equality();
+    while (this.match("AND")) {
+      const operator = this.previous();
+      const right = this.equality();
+      expr = {
+        type: "logical",
+        left: expr,
+        operator,
+        right
+      };
     }
     return expr;
   }

@@ -31,6 +31,12 @@ export type Expr =
     type: 'assignment',
     name: Token,
     value: Expr
+  }
+  | {
+    type: 'logical',
+    left: Expr,
+    operator: Token,
+    right: Expr
   };
 
 
@@ -52,6 +58,12 @@ export type Stmt =
     type: 'block',
     tokens: Token[],
     statements: (Stmt | null)[]
+  }
+  | {
+    type: 'if',
+    condition: Expr,
+    thenBranch: Stmt,
+    elseBranch: Stmt | null
   };
 
 class ParseError extends Error {}
@@ -107,6 +119,10 @@ class Parser {
   }
 
   private statement(): Stmt {
+    if (this.match('IF')) {
+      return this.ifStatement();
+    }
+
     if (this.match('PRINT')) {
       return this.printStatement();
     }
@@ -116,6 +132,25 @@ class Parser {
     }
 
     return this.expressionStatement();
+  }
+
+  private ifStatement(): Stmt {
+    this.consume('LEFT_PAREN', "Expect `(` after `if`.");
+    const condition = this.expression();
+    this.consume('RIGHT_PAREN', "Expect `)` after if condition.");
+
+    const thenBranch = this.statement();
+    let elseBranch = null;
+    if (this.match('ELSE')) {
+      elseBranch = this.statement();
+    }
+
+    return {
+      type: 'if',
+      condition,
+      thenBranch,
+      elseBranch
+    };
   }
 
   private printStatement(): Stmt {
@@ -239,7 +274,7 @@ class Parser {
   }
 
   private assignment(): Expr {
-    const expr = this.equality();
+    const expr = this.or();
 
     if (this.match('EQUAL')) {
       const equals = this.previous();
@@ -256,6 +291,40 @@ class Parser {
       }
       
       this.error(equals, "Invalid assignment target.");
+    }
+
+    return expr;
+  }
+
+  private or(): Expr {
+    let expr = this.and();
+
+    while (this.match('OR')) {
+      const operator = this.previous();
+      const right = this.and();
+      expr = {
+        type: 'logical',
+        left: expr,
+        operator,
+        right
+      }
+    }
+
+    return expr;
+  }
+
+  private and(): Expr {
+    let expr = this.equality();
+
+    while (this.match('AND')) {
+      const operator = this.previous();
+      const right = this.equality();
+      expr = {
+        type: 'logical',
+        left: expr,
+        operator,
+        right
+      }
     }
 
     return expr;

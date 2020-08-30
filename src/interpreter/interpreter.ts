@@ -44,6 +44,15 @@ export class Interpreter {
       }
       case 'block': {
         this.executeBlock(stmt.statements, new Environment(this.environment));
+        return;
+      }
+      case 'if': {
+        if (this.isTruthy(this.evaluateAndRecord(stmt.condition))) {
+          this.evaluateStmt(stmt.thenBranch);
+        } else if (stmt.elseBranch) {
+          this.evaluateStmt(stmt.elseBranch);
+        }
+        return;
       }
     }
   }
@@ -149,6 +158,22 @@ export class Interpreter {
         this.environment.assign(expr.name, val);
 
         return val;
+      }
+
+      case 'logical': {
+        const left = this.evaluateAndRecord(expr.left);
+
+        if (expr.operator.type === 'OR') {
+          if (this.isTruthy(left)) {
+            return left;
+          }
+        } else {
+          if (!this.isTruthy(left)) {
+            return left;
+          }
+        }
+
+        return this.evaluateAndRecord(expr.right);
       }
     }
   }
