@@ -20,6 +20,7 @@ type Stmt
     | Print Expr
     | Var VarStmt
     | Block BlockStmt
+    | If IfStmt
 
 
 type alias VarStmt =
@@ -34,6 +35,13 @@ type alias BlockStmt =
     }
 
 
+type alias IfStmt =
+    { condition : Expr
+    , thenBranch : Stmt
+    , elseBranch : Maybe Stmt
+    }
+
+
 type Expr
     = Binary BinaryExpr
     | Unary UnaryExpr
@@ -41,6 +49,7 @@ type Expr
     | Literal LiteralExpr
     | Variable VariableExpr
     | Assignment AssignmentExpr
+    | Logical LogicalExpr
 
 
 type alias BinaryExpr =
@@ -77,9 +86,18 @@ type alias VariableExpr =
     , result : Maybe TokenLiteral
     }
 
+
 type alias AssignmentExpr =
     { name : Token
     , value : Expr
+    , result : Maybe TokenLiteral
+    }
+
+
+type alias LogicalExpr =
+    { operator : Token
+    , left : Expr
+    , right : Expr
     , result : Maybe TokenLiteral
     }
 
@@ -163,16 +181,24 @@ decodeStmtType s =
 
         "var" ->
             Json.Decode.map Var
-                ( Json.Decode.map2 VarStmt
+                (Json.Decode.map2 VarStmt
                     (field "name" decodeToken)
                     (Json.Decode.maybe (field "initializer" decodeExpr))
                 )
 
         "block" ->
             Json.Decode.map Block
-                ( Json.Decode.map2 BlockStmt
+                (Json.Decode.map2 BlockStmt
                     (field "tokens" (Json.Decode.list decodeToken))
                     (field "statements" (Json.Decode.list (Json.Decode.maybe decodeStmt)))
+                )
+
+        "if" ->
+            Json.Decode.map If
+                (Json.Decode.map3 IfStmt
+                    (field "condition" decodeExpr)
+                    (field "thenBranch" decodeStmt)
+                    (Json.Decode.maybe (field "elseBranch" decodeStmt))
                 )
 
         _ ->
@@ -228,7 +254,6 @@ decodeExprType s =
                     (Json.Decode.maybe (field "result" decodeTokenLiteral))
                 )
 
-
         "assignment" ->
             Json.Decode.map Assignment
                 (Json.Decode.map3 AssignmentExpr
@@ -237,6 +262,14 @@ decodeExprType s =
                     (Json.Decode.maybe (field "result" decodeTokenLiteral))
                 )
 
+        "logical" ->
+            Json.Decode.map Logical
+                (Json.Decode.map4 LogicalExpr
+                    (field "operator" decodeToken)
+                    (field "left" decodeExpr)
+                    (field "right" decodeExpr)
+                    (Json.Decode.maybe (field "result" decodeTokenLiteral))
+                )
 
         _ ->
             Json.Decode.fail ("Unknown expr type: " ++ s)
@@ -453,6 +486,9 @@ exprToken expr =
         Assignment e ->
             [ e.name ]
 
+        Logical e ->
+            [ e.operator ]
+
 
 exprResult : Expr -> Maybe TokenLiteral
 exprResult expr =
@@ -475,6 +511,9 @@ exprResult expr =
         Assignment e ->
             e.result
 
+        Logical e ->
+            e.result
+
 
 getExprTokenMin : Expr -> Maybe Int
 getExprTokenMin expr =
@@ -490,12 +529,16 @@ getExprTokenMin expr =
 
         Literal e ->
             Just e.token.start
-            
+
         Variable e ->
             Just e.name.start
 
         Assignment e ->
             Just e.name.start
+
+        Logical e ->
+            getExprTokenMin e.left
+
 
 getExprTokenMax : Expr -> Maybe Int
 getExprTokenMax expr =
@@ -517,6 +560,9 @@ getExprTokenMax expr =
 
         Assignment e ->
             getExprTokenMax e.value
+
+        Logical e ->
+            getExprTokenMax e.right
 
 
 getExprTokenRange : List Token -> Expr -> List Token

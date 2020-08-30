@@ -893,6 +893,9 @@ viewStmt model stmt =
 
                         I.Block _ ->
                             "block"
+
+                        I.If _ ->
+                            "if"
                     )
                 ]
             , case stmt of
@@ -924,6 +927,26 @@ viewStmt model stmt =
                         ]
                         [ viewStmtList model b.statements
                         ]
+
+                I.If i ->
+                    H.ol
+                        []
+                        (List.map
+                            (\el ->
+                                H.li
+                                    []
+                                    [ el ]
+                            )
+                            [ viewExpressionTree model i.condition
+                            , viewStmt model i.thenBranch
+                            , case i.elseBranch of
+                                Nothing ->
+                                    H.text ""
+
+                                Just e ->
+                                    viewStmt model e
+                            ]
+                        )
             ]
         ]
 
@@ -1104,6 +1127,26 @@ viewExpression model expr =
                     ]
                     [ viewExpression model a.value
                     ]
+
+            I.Logical l ->
+                H.ol
+                    [ css
+                        [ Css.position Css.relative
+                        , Css.paddingTop (rem 1.25)
+                        , Css.before
+                            [ Css.property "content" "''"
+                            , Css.position Css.absolute
+                            , Css.top Css.zero
+                            , Css.left (pct 50)
+                            , Css.borderLeft2 (px 2) Css.solid
+                            , Css.width Css.zero
+                            , Css.height (rem 1.25)
+                            ]
+                        ]
+                    ]
+                    [ viewExpression model l.left
+                    , viewExpression model l.right
+                    ]
         ]
 
 
@@ -1148,6 +1191,9 @@ viewExprChar e tokens =
                             tokenResult
 
                         I.Assignment _ ->
+                            tokenResult
+
+                        I.Logical _ ->
                             tokenResult
                     )
                 , Css.padding (rem 0.5)

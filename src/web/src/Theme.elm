@@ -28,11 +28,11 @@ light =
 dark : Theme
 dark =
   { purple = "402945"
-  , background = "0f0f0f"
-  , softBackground = "1f1f1f"
+  , background = "111"
+  , softBackground = "222"
   , softText = "999"
   , contrastBackground = "4f4c5c"
-  , shadow = "111"
+  , shadow = "000"
   , text = "eee"
   , highlight = "204a62"
   }
