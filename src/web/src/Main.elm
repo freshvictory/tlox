@@ -1,9 +1,8 @@
 port module Main exposing (main)
 
 import Browser
-import Css exposing (Style, hex, pct, px, rem)
+import Css exposing (hex, pct, px, rem)
 import Css.Global
-import Css.Media
 import Html.Styled as H exposing (Html, toUnstyled)
 import Html.Styled.Attributes as A exposing (css)
 import Html.Styled.Events as E
@@ -11,7 +10,7 @@ import Interpreter as I exposing (ParseError, RunExpr, ScanError, Stmt, Token, T
 import Json.Decode as Decode
 import List
 import String
-import Theme exposing (Theme, dark, light)
+import Theme exposing (light, themed, themedProperty)
 
 
 
@@ -1462,33 +1461,3 @@ groupBy prop l =
                     List.filter (\s -> prop s /= prop x) xs
             in
             (x :: y) :: groupBy prop z
-
-
-themed : List ( Css.Color -> Style, Theme -> String ) -> Style
-themed styles =
-    Css.batch
-        [ Css.Media.withMediaQuery [ "(prefers-color-scheme: dark)" ]
-            (List.map
-                (\( s, t ) ->
-                    s (Css.hex (t dark))
-                )
-                styles
-            )
-        , Css.Media.withMediaQuery [ "(prefers-color-scheme: light)" ]
-            (List.map
-                (\( s, t ) ->
-                    s (Css.hex (t light))
-                )
-                styles
-            )
-        ]
-
-
-themedProperty : String -> (Theme -> String) -> Style
-themedProperty name style =
-    Css.batch
-        [ Css.Media.withMediaQuery [ "(prefers-color-scheme: dark)" ]
-            [ Css.property name ("#" ++ style dark) ]
-        , Css.Media.withMediaQuery [ "(prefers-color-scheme: light)" ]
-            [ Css.property name ("#" ++ style light) ]
-        ]
