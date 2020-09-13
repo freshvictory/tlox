@@ -42,6 +42,11 @@ class Interpreter {
         }
         return;
       }
+      case "while": {
+        while (this.isTruthy(this.evaluate(stmt.condition))) {
+          this.evaluateStmt(stmt.body);
+        }
+      }
     }
   }
   executeBlock(statements, environment2) {
@@ -101,7 +106,10 @@ class Interpreter {
             if (typeof left === "string" && typeof right === "string") {
               return left + right;
             }
-            throw new RuntimeError(expr.operator, "Operands must be two numbers or two strings.");
+            throw new RuntimeError(
+              expr.operator,
+              "Operands must be two numbers or two strings.",
+            );
           case "SLASH":
             this.checkNumber(expr.operator, left, right);
             return left / right;

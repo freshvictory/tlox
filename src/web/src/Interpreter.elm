@@ -1,5 +1,6 @@
 module Interpreter exposing (..)
 
+import Dict exposing (Dict)
 import Json.Decode exposing (Decoder, field, list)
 
 
@@ -21,6 +22,7 @@ type Stmt
     | Var VarStmt
     | Block BlockStmt
     | If IfStmt
+    | While WhileStmt
 
 
 type alias ExpressionStmt =
@@ -52,6 +54,13 @@ type alias IfStmt =
     { condition : RunExpr
     , thenBranch : Stmt
     , elseBranch : Maybe Stmt
+    , tokens : List Token
+    }
+
+
+type alias WhileStmt =
+    { condition : RunExpr
+    , body : Stmt
     , tokens : List Token
     }
 
@@ -224,6 +233,14 @@ decodeStmtType s =
                     (field "tokens" (list decodeToken))
                 )
 
+        "while" ->
+            Json.Decode.map While
+                (Json.Decode.map3 WhileStmt
+                    (field "condition" decodeRunExpr)
+                    (field "body" decodeStmt)
+                    (field "tokens" (list decodeToken))
+                )
+
         _ ->
             Json.Decode.fail ("Unknown stmt type: " ++ s)
 
@@ -314,6 +331,7 @@ decodeToken =
         (field "line" Json.Decode.int)
         (field "start" Json.Decode.int)
         (Json.Decode.maybe (field "literal" decodeTokenLiteral))
+
 
 
 decodeTokenType : Decoder TokenType
@@ -600,6 +618,9 @@ getStmtTokenMin stmt =
         Var v ->
             Maybe.map .start (List.head v.tokens)
 
+        While w ->
+            Maybe.map .start (List.head w.tokens)
+
 
 getStmtTokenMax : Stmt -> Maybe Int
 getStmtTokenMax stmt =
@@ -623,6 +644,9 @@ getStmtTokenMax stmt =
 
         Var v ->
             Maybe.map .start (List.head (List.reverse v.tokens))
+
+        While w ->
+            Maybe.map .start (List.head (List.reverse w.tokens))
 
 
 getStmtTokenRange : List Token -> Stmt -> List Token

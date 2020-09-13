@@ -204,7 +204,7 @@ update msg model =
                     , run p
                     )
 
-                Err e ->
+                Err _ ->
                     ( { model | parseResult = [] }
                     , Cmd.none
                     )
@@ -950,6 +950,9 @@ viewStmt model stmt =
                 I.If i ->
                     viewIfStmt model i
 
+                I.While w ->
+                    viewWhileStmt model w
+
         expanded =
             List.member stmt model.expanded
     in
@@ -1185,6 +1188,47 @@ viewIfStmt model stmt =
                             [ H.text "else"
                             , viewStmt model e
                             ]
+                ]
+            )
+    }
+
+
+viewWhileStmt : Model -> I.WhileStmt -> StmtView
+viewWhileStmt model stmt =
+    { header =
+        [ H.h1
+            [ A.class "token"
+            , A.class "PRINT"
+            , css
+                [ Css.fontSize (rem 1)
+                ]
+            ]
+            [ H.text "while"
+            ]
+        , H.p
+            []
+            [ case stmt.condition.result of
+                Nothing ->
+                    H.text ": ?"
+
+                Just l ->
+                    H.text (": " ++ I.tokenLiteralString l)
+            ]
+        ]
+    , body =
+        Just
+            (H.div
+                []
+                [ H.div
+                    []
+                    [ H.text "condition"
+                    , viewExpressionTree model stmt.condition
+                    ]
+                , H.div
+                    []
+                    [ H.text "then"
+                    , viewStmt model stmt.body
+                    ]
                 ]
             )
     }

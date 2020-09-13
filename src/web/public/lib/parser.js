@@ -33,12 +33,14 @@ class Parser {
       tokens.push(this.previous());
       initializer = this.expression();
     }
-    tokens.push(this.consume("SEMICOLON", "Expect `;` after variable declaration."));
+    tokens.push(
+      this.consume("SEMICOLON", "Expect `;` after variable declaration."),
+    );
     return {
       type: "var",
       name,
       initializer,
-      tokens
+      tokens,
     };
   }
   statement() {
@@ -47,6 +49,9 @@ class Parser {
     }
     if (this.match("PRINT")) {
       return this.printStatement();
+    }
+    if (this.match("WHILE")) {
+      return this.whileStatement();
     }
     if (this.match("LEFT_BRACE")) {
       return this.blockStatement();
@@ -70,7 +75,20 @@ class Parser {
       condition,
       thenBranch,
       elseBranch,
-      tokens
+      tokens,
+    };
+  }
+  whileStatement() {
+    const tokens = [];
+    tokens.push(this.previous());
+    tokens.push(this.consume("LEFT_PAREN", "Expect `(` after `while`."));
+    const condition = this.expression();
+    tokens.push(this.consume("RIGHT_PAREN", "Expect `)` after condition."));
+    return {
+      type: "while",
+      condition,
+      tokens,
+      body: this.statement(),
     };
   }
   printStatement() {
@@ -81,7 +99,7 @@ class Parser {
     return {
       type: "print",
       expression: expr,
-      tokens
+      tokens,
     };
   }
   blockStatement() {
@@ -90,7 +108,7 @@ class Parser {
     return {
       type: "block",
       tokens: [leftBrace, this.previous()],
-      statements
+      statements,
     };
   }
   block() {
@@ -107,7 +125,7 @@ class Parser {
     return {
       type: "expression",
       expression: expr,
-      tokens: [semi]
+      tokens: [semi],
     };
   }
   match(...types) {
@@ -183,7 +201,7 @@ class Parser {
         return {
           type: "assignment",
           name,
-          value
+          value,
         };
       }
       this.error(equals, "Invalid assignment target.");
@@ -199,7 +217,7 @@ class Parser {
         type: "logical",
         left: expr,
         operator,
-        right
+        right,
       };
     }
     return expr;
@@ -213,7 +231,7 @@ class Parser {
         type: "logical",
         left: expr,
         operator,
-        right
+        right,
       };
     }
     return expr;
@@ -227,7 +245,7 @@ class Parser {
         type: "binary",
         left: expr,
         operator,
-        right
+        right,
       };
     }
     return expr;
@@ -241,7 +259,7 @@ class Parser {
         type: "binary",
         left: expr,
         operator,
-        right
+        right,
       };
     }
     return expr;
@@ -255,7 +273,7 @@ class Parser {
         type: "binary",
         left: expr,
         operator,
-        right
+        right,
       };
     }
     return expr;
@@ -269,7 +287,7 @@ class Parser {
         type: "binary",
         left: expr,
         operator,
-        right
+        right,
       };
     }
     return expr;
@@ -281,32 +299,32 @@ class Parser {
       return {
         type: "unary",
         operator,
-        right
+        right,
       };
     }
     return this.primary();
   }
   primary() {
     if (this.match("FALSE")) {
-      return {type: "literal", value: false, token: this.previous()};
+      return { type: "literal", value: false, token: this.previous() };
     }
     if (this.match("TRUE")) {
-      return {type: "literal", value: true, token: this.previous()};
+      return { type: "literal", value: true, token: this.previous() };
     }
     if (this.match("NIL")) {
-      return {type: "literal", value: null, token: this.previous()};
+      return { type: "literal", value: null, token: this.previous() };
     }
     if (this.match("NUMBER", "STRING")) {
       return {
         type: "literal",
         value: this.previous().literal,
-        token: this.previous()
+        token: this.previous(),
       };
     }
     if (this.match("IDENTIFIER")) {
       return {
         type: "variable",
-        name: this.previous()
+        name: this.previous(),
       };
     }
     if (this.match("LEFT_PAREN")) {
@@ -316,14 +334,17 @@ class Parser {
       return {
         type: "grouping",
         expression: expr,
-        tokens: [firstParen, this.previous()]
+        tokens: [firstParen, this.previous()],
       };
     }
     throw this.error(this.peek(), "Expect expression.");
   }
 }
 function parse(tokens, error) {
-  return new Parser(tokens.filter((t) => {
-    return t.type !== "WHITESPACE" && t.type !== "COMMENT";
-  }), error).parse();
+  return new Parser(
+    tokens.filter((t) => {
+      return t.type !== "WHITESPACE" && t.type !== "COMMENT";
+    }),
+    error,
+  ).parse();
 }
