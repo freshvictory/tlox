@@ -589,7 +589,7 @@ getStmtTokenMin stmt =
             getExprTokenMin e.expression
 
         Print p ->
-            getExprTokenMin p.expression
+            Maybe.map .start (List.head p.tokens)
 
         Block b ->
             Maybe.map .start (List.head b.tokens)
