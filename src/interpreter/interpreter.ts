@@ -54,6 +54,11 @@ export class Interpreter {
         }
         return;
       }
+      case 'while': {
+        while (this.isTruthy(this.evaluate(stmt.condition))) {
+          this.evaluateStmt(stmt.body);
+        }
+      }
     }
   }
 

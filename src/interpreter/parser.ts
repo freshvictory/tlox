@@ -68,6 +68,12 @@ export type Stmt =
     condition: Expr,
     thenBranch: Stmt,
     elseBranch: Stmt | null
+  }
+  | {
+    type: 'while',
+    tokens: Token[],
+    condition: Expr,
+    body: Stmt
   };
 
 class ParseError extends Error {}
@@ -137,6 +143,10 @@ class Parser {
       return this.printStatement();
     }
 
+    if (this.match('WHILE')) {
+      this.whileStatement();
+    }
+
     if (this.match('LEFT_BRACE')) {
       return this.blockStatement();
     }
@@ -165,6 +175,21 @@ class Parser {
       elseBranch,
       tokens
     };
+  }
+
+  private whileStatement(): Stmt {
+    const tokens: Token[] = [];
+    tokens.push(this.previous());
+    tokens.push(this.consume('LEFT_PAREN', 'Expect `(` after `while`.'));
+    const condition = this.expression();
+    tokens.push(this.consume('RIGHT_PAREN', 'Expect `)` after condition.'));
+    
+    return {
+      type: 'while',
+      condition,
+      tokens,
+      body: this.statement()
+    }
   }
 
   private printStatement(): Stmt {
