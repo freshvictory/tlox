@@ -3,6 +3,7 @@
     "create-elm-app": "^4.1.1"
   },
   "scripts": {
-    "build": "elm-app build"
+    "build": "elm-app build",
+    "start": "elm-app start"
   }
 }

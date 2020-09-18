@@ -35,8 +35,34 @@ app.ports.parse.subscribe(function (t) {
   parserWorker.postMessage(t);
 });
 
-const interpreterWorker = new Worker('interpreter-worker.js');
-interpreterWorker.onmessage = ({ data }) => {
+const throttle = (callback, delay) => {
+  let throttleTimeout = null;
+  let storedEvent = null;
+
+  const throttledEventHandler = event => {
+    storedEvent = event;
+
+    const shouldHandleEvent = !throttleTimeout;
+
+    if (shouldHandleEvent) {
+      callback(storedEvent);
+
+      storedEvent = null;
+
+      throttleTimeout = setTimeout(() => {
+        throttleTimeout = null;
+
+        if (storedEvent) {
+          throttledEventHandler(storedEvent);
+        }
+      }, delay);
+    }
+  };
+
+  return throttledEventHandler;
+};
+
+function onRunResult({ data }) {
   if (data.type === 'log') {
     app.ports.log.send(data.object);
 
@@ -44,13 +70,27 @@ interpreterWorker.onmessage = ({ data }) => {
   }
 
   const { result, error } = data;
-  app.ports.runResult.send(result);
+  app.ports.runResult.send(result)
   if (error) {
     app.ports.runError.send(error);
   }
-};
+}
 
-app.ports.run.subscribe(function (e) {
+function buildInterpreterWorker() {
+  const interpreterWorker = new Worker('interpreter-worker.js');
+  interpreterWorker.onmessage = throttle(onRunResult, 100);
+
+  return interpreterWorker;
+}
+
+let interpreterWorker = buildInterpreterWorker();
+app.ports.run.subscribe(throttle(function (e) {
+  interpreterWorker.terminate();
+  interpreterWorker = buildInterpreterWorker();
+  setTimeout(() => {
+    console.error('Terminated worker after 5 seconds.');
+    interpreterWorker.terminate();
+  }, 5000);
   app.ports.runError.send(null);
   interpreterWorker.postMessage(e);
-});
+}, 200));
