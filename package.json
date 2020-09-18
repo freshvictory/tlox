@@ -5,6 +5,7 @@
   },
   "scripts": {
     "build": "esbuild --minify --outdir=public/lib --target=es6 src/interpreter/*.ts; elm-app build",
+    "dev-build": "esbuild --outdir=public/lib --target=es6 src/interpreter/*.ts",
     "start": "elm-app start"
   }
 }

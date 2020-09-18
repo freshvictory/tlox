@@ -1,4 +1,4 @@
-importScripts('./lib/environment.js', './lib/interpreter.js');
+importScripts('./lib/interpreter.js');
 
 onmessage = function ({ data }) {
   let error = undefined;
