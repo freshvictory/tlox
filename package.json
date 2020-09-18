@@ -1,9 +1,10 @@
 {
   "devDependencies": {
-    "create-elm-app": "^4.1.1"
+    "create-elm-app": "^4.2.6",
+    "esbuild": "^0.7.1"
   },
   "scripts": {
-    "build": "elm-app build",
+    "build": "esbuild --minify --outdir=public/lib --target=es6 src/interpreter/*.ts; elm-app build",
     "start": "elm-app start"
   }
 }

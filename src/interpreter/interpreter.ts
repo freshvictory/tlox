@@ -1,8 +1,7 @@
-import type { Expr, Stmt } from './parser.ts';
-import type { Token } from './scanner.ts';
-import { Environment } from './environment.ts';
+import type { Expr, Stmt } from './parser';
+import type { Token } from './scanner';
 
-export class Interpreter {
+class Interpreter {
   private environment = new Environment();
 
   constructor(
@@ -200,8 +199,48 @@ export class Interpreter {
   }
 }
 
-export class RuntimeError extends Error {
+class RuntimeError extends Error {
   constructor(readonly token: Token, message: string) {
     super(message);
+  }
+}
+
+
+class Environment {
+  private readonly enclosing: Environment | null;
+  private readonly values: { [key: string]: unknown } = {};
+
+  constructor(enclosing: Environment | null = null) {
+    this.enclosing = enclosing;
+  }
+
+  public define(name: string, value: unknown): void {
+    this.values[name] = value;
+  }
+
+  public get(name: Token): unknown {
+    if (name.lexeme in this.values) {
+      return this.values[name.lexeme];
+    }
+
+    if (this.enclosing) {
+      return this.enclosing.get(name);
+    }
+
+    throw new RuntimeError(name, `Undefined variable '${name.lexeme}'.`);
+  }
+
+  public assign(name: Token, value: unknown): void {
+    if (name.lexeme in this.values) {
+      this.values[name.lexeme] = value;
+      return;
+    }
+
+    if (this.enclosing) {
+      this.enclosing.assign(name, value);
+      return;
+    }
+
+    throw new RuntimeError(name, `Undefined variable '${name.lexeme}'.`);
   }
 }

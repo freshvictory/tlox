@@ -1,6 +1,9 @@
 # Distribution
 build/
 
+# Compiled interpreter
+public/lib
+
 # elm-package generated files
 elm-stuff
 

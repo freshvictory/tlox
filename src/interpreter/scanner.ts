@@ -240,7 +240,7 @@ class Scanner {
 }
 
 
-export function scanTokens(
+function scanTokens(
   source: string,
   error: (line: number, message: string) => void
 ): Token[] {

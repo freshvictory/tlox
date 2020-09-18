@@ -1,4 +1,4 @@
-import type { Token, TokenType } from './scanner.ts';
+import type { Token, TokenType } from './scanner';
 
 
 export type Expr =
@@ -509,7 +509,7 @@ class Parser {
   }
 }
 
-export function parse(
+function parse(
   tokens: Token[],
   error: (t: Token, m: string) => void
 ): (Stmt | null)[] {
