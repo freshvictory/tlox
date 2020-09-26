@@ -28,7 +28,7 @@ let queue;
 
 function log(x) {
   queue.push(x);
-  if (queue.queue.length > 1000) {
+  if (queue.queue.length > 10000) {
     postMessage({
       type: 'log',
       object: queue.flush()
