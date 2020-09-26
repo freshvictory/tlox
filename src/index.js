@@ -3,13 +3,11 @@ import './theme.css';
 import './code.css';
 import './tree.css';
 import { Elm } from './Main.elm';
-import buildEditor from './editor';
+import { Queue } from './queue';
 
 const app = Elm.Main.init({
   node: document.getElementById('root')
 });
-
-// buildEditor();
 
 const scannerWorker = new Worker('scanner-worker.js');
 scannerWorker.onmessage = ({ data }) => {
@@ -62,6 +60,8 @@ const throttle = (callback, delay) => {
   return throttledEventHandler;
 };
 
+let terminateTimeout = -1;
+
 function onRunResult({ data }) {
   if (data.type === 'log') {
     app.ports.log.send(data.object);
@@ -70,27 +70,33 @@ function onRunResult({ data }) {
   }
 
   const { result, error } = data;
-  app.ports.runResult.send(result)
+  app.ports.runResult.send(result);
   if (error) {
     app.ports.runError.send(error);
   }
+  clearTimeout(terminateTimeout);
 }
 
 function buildInterpreterWorker() {
   const interpreterWorker = new Worker('interpreter-worker.js');
-  interpreterWorker.onmessage = throttle(onRunResult, 100);
+  interpreterWorker.onmessage = onRunResult;
 
   return interpreterWorker;
 }
 
 let interpreterWorker = buildInterpreterWorker();
 app.ports.run.subscribe(throttle(function (e) {
+  clearTimeout(terminateTimeout);
   interpreterWorker.terminate();
+
   interpreterWorker = buildInterpreterWorker();
-  setTimeout(() => {
+
+  terminateTimeout = setTimeout(() => {
     console.error('Terminated worker after 5 seconds.');
     interpreterWorker.terminate();
   }, 5000);
+
+
   app.ports.runError.send(null);
   interpreterWorker.postMessage(e);
 }, 200));

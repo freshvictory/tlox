@@ -144,7 +144,7 @@ class Parser {
     }
 
     if (this.match('WHILE')) {
-      this.whileStatement();
+      return this.whileStatement();
     }
 
     if (this.match('LEFT_BRACE')) {

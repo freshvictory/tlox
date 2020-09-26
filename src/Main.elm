@@ -44,7 +44,7 @@ port runResult : (Decode.Value -> msg) -> Sub msg
 port runError : (Maybe Decode.Value -> msg) -> Sub msg
 
 
-port log : (String -> msg) -> Sub msg
+port log : (List String -> msg) -> Sub msg
 
 
 
@@ -82,7 +82,7 @@ main =
 type Tab
     = Scanner
     | Parser
-    | Run
+    | Console
 
 
 type Selected
@@ -144,7 +144,7 @@ defaultModel =
     , hover = Nothing
     , selected = Nothing
     , expanded = []
-    , tab = Parser
+    , tab = Console
     }
 
 
@@ -170,7 +170,7 @@ type Msg
     | SelectStmt Stmt
     | ToggleExpand Stmt
     | TabChange Tab
-    | Log String
+    | Log (List String)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -327,7 +327,7 @@ update msg model =
             )
 
         Log s ->
-            ( { model | console = model.console ++ [ s ] }
+            ( { model | console = model.console ++ s }
             , Cmd.none
             )
 
@@ -662,7 +662,7 @@ viewResults model =
             ]
             [ viewTabRadio model "scanner" "Scanner" Scanner
             , viewTabRadio model "parser" "Parser" Parser
-            , viewTabRadio model "runner" "Interpreter" Run
+            , viewTabRadio model "runner" "Console" Console
             ]
         , case model.tab of
             Scanner ->
@@ -671,7 +671,7 @@ viewResults model =
             Parser ->
                 viewParserResults model
 
-            Run ->
+            Console ->
                 viewRunResults model
         ]
 
@@ -1446,7 +1446,12 @@ viewExprResult expr =
 viewRunResults : Model -> Html Msg
 viewRunResults model =
     H.code
-        []
+        [ css
+            [ Css.height (px 300)
+            , Css.overflowY Css.auto
+            , Css.border3 (px 1) Css.solid (hex "333")
+            ]
+        ]
         (List.map
             (\m ->
                 H.pre
